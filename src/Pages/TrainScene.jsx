@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 
-// --- ALL COMPONENTS ---
-
-// Wheel Component (CSS-based for individual wheel)
 const Wheel = () => (
   <div className="relative w-10 h-10 bg-gray-800 rounded-full border-2 border-gray-900 shadow-lg flex items-center justify-center">
     <div className="w-5 h-5 bg-gray-600 rounded-full border border-gray-700"></div>
@@ -101,7 +98,6 @@ const Cloud = ({ style }) => (
   </div>
 );
 
-// --- MAIN SCENE ---
 
 const TrainSceneCSS = () => {
   const [numCompartments, setNumCompartments] = useState(3);

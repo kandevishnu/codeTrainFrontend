@@ -17,7 +17,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAL8Viyn-zi_LXmZxuEuuR1gYnsyMZwMu4",
   authDomain: "codetrain-40b2c.firebaseapp.com",
@@ -27,13 +26,11 @@ const firebaseConfig = {
   appId: "1:174063254444:web:7a44527d37b106a60b9809",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
-/* ✅ Signup with Email/Password (no gender, no role) */
 export const registerWithEmailPassword = async (name, email, password) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -56,7 +53,6 @@ export const registerWithEmailPassword = async (name, email, password) => {
   }
 };
 
-/* ✅ Login with Email/Password */
 export const loginWithEmailPassword = async (email, password) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -72,7 +68,6 @@ export const loginWithEmailPassword = async (email, password) => {
   }
 };
 
-/* ✅ Google Sign-In (includes lastLoginAt + provider) */
 export const signInWithGoogle = async () => {
   try {
     const res = await signInWithPopup(auth, googleProvider);
@@ -82,7 +77,6 @@ export const signInWithGoogle = async () => {
     const userSnap = await getDoc(userRef);
 
     if (!userSnap.exists()) {
-      // New Google user: create their record
       await setDoc(userRef, {
         uid: user.uid,
         name: user.displayName,
@@ -93,7 +87,6 @@ export const signInWithGoogle = async () => {
         lastLoginAt: serverTimestamp(),
       });
     } else {
-      // Existing Google user: just update login time
       await setDoc(userRef, {
         lastLoginAt: serverTimestamp(),
       }, { merge: true });
@@ -106,7 +99,6 @@ export const signInWithGoogle = async () => {
   }
 };
 
-/* ✅ Logout */
 export const logout = async () => {
   try {
     await signOut(auth);

@@ -1,4 +1,3 @@
-// src/components/TrainModel.jsx
 import React, { Suspense, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -13,10 +12,9 @@ const Train = () => {
     const train = trainRef.current;
 
     if (train) {
-      // Loop train from left to right
-      const speed = 5; // adjust speed here
-      const width = 20; // visible width of screen in world units
-      const x = ((t * speed) % (width + 10)) - (width / 2 + 5); // range: -15 to +15
+      const speed = 5; 
+      const width = 20; 
+      const x = ((t * speed) % (width + 10)) - (width / 2 + 5);
       train.position.x = x;
     }
   });
@@ -24,8 +22,8 @@ const Train = () => {
   return (
     <group
       ref={trainRef}
-      position={[-15, -1.2, 0]} // Start far left
-      rotation={[0, Math.PI / 2, 0]} // Face right (side view)
+      position={[-15, -1.2, 0]} 
+      rotation={[0, Math.PI / 2, 0]} 
       scale={0.6}
     >
       <primitive object={gltf.scene} />
@@ -42,7 +40,6 @@ const TrainModel = () => {
         <Suspense fallback={null}>
           <Train />
         </Suspense>
-        {/* No OrbitControls to keep fixed cinematic view */}
       </Canvas>
     </div>
   );
