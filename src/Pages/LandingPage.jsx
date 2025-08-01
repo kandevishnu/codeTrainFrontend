@@ -37,7 +37,6 @@ const LandingPage = () => {
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       />
 
-      {/* Dark overlay fade-in */}
       {showTitles && (
         <div className="absolute inset-0 bg-black/40 z-10 transition-opacity duration-1000" />
       )}

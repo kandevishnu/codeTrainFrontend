@@ -10,10 +10,13 @@ import Signup from "./Pages/Signup";
 import Login from "./Pages/Login";
 import Dashboard from "./Pages/Dashboard";
 import LandingPage from "./Pages/LandingPage";
-import TrainScene from "./Pages/TrainScene";
 import ResetPassword from "./Pages/ResetPassword";
 import VerifyEmail from "./Pages/VerifyEmail";
 import EmailVerified from "./Pages/EmailVerified";
+import Profile from "./Pages/Profile";
+import Home from "./Pages/Home";
+import RoomView from "./Pages/RoomView";
+import TrainModel from "./components/TrainModel";
 
 const App = () => {
   const location = useLocation();
@@ -22,7 +25,21 @@ const App = () => {
     <>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<LandingPage />} />
+          <Route
+            path="/"
+            element={
+              <GuestRoute>
+                <LandingPage />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/train-model"
+            element={
+              <ProtectedRoute>
+                <TrainModel />
+              </ProtectedRoute>
+            } />
           <Route
             path="/signup"
             element={
@@ -39,12 +56,36 @@ const App = () => {
               </GuestRoute>
             }
           />
-          <Route path="/train" element={<TrainScene />} />
+          
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/room/:roomId"
+            element={
+              <ProtectedRoute>
+                <RoomView />
               </ProtectedRoute>
             }
           />

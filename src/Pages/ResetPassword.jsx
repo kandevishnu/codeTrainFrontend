@@ -20,7 +20,6 @@ const ResetPassword = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // Already logged in, skip this whole useEffect
         navigate("/dashboard", { replace: true });
       } else {
         if (!oobCode) {
@@ -44,7 +43,7 @@ const ResetPassword = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        navigate("/dashboard", { replace: true }); // prevents back nav
+        navigate("/dashboard", { replace: true }); 
       }
     });
 

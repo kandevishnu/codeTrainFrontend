@@ -16,7 +16,7 @@ const EmailVerified = () => {
     if (mode === "verifyEmail" && oobCode) {
       applyActionCode(auth, oobCode)
         .then(async () => {
-          await auth.currentUser?.reload(); // refresh user
+          await auth.currentUser?.reload(); 
           setMessage("✅ Your email is now verified!");
           toast.success("Email verified successfully!");
         })

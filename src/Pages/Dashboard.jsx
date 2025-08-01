@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { auth, logout } from "../firebase";
+import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { getProjectsForUser } from "../firebase/firebaseUtils";
+import SidebarLayout from "../components/SidebarLayout";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
+  const [projects, setProjects] = useState([]);
+  const [stats, setStats] = useState({ total: 0, active: 0, completed: 0 });
 
   useEffect(() => {
     const justVerified = localStorage.getItem("justVerified");
@@ -12,56 +13,68 @@ const Dashboard = () => {
       toast.success("Email Verified! Welcome 🎉");
       localStorage.removeItem("justVerified");
     }
+
+    const fetchData = async () => {
+      const userProjects = await getProjectsForUser();
+      setProjects(userProjects);
+
+      const total = userProjects.length;
+      const completed = userProjects.filter(p => p.status === "completed").length;
+      const active = total - completed;
+      setStats({ total, active, completed });
+    };
+
+    fetchData();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      console.log("User signed out");
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout failed:", error.message);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!window.confirm("Are you sure you want to delete your account permanently?")) return;
-
-    try {
-      await auth.currentUser.delete();
-      toast.success("Account deleted successfully.");
-      navigate("/signup"); // or "/login"
-    } catch (error) {
-      if (error.code === "auth/requires-recent-login") {
-        toast.error("Please log in again to delete your account.");
-        await logout();
-        navigate("/login");
-      } else {
-        console.error("Account deletion failed:", error.message);
-        toast.error("Account deletion failed. Try again.");
-      }
-    }
-  };
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 gap-4">
-      <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+    <SidebarLayout>
+      <h1 className="text-2xl font-bold mb-6">Welcome to your Dashboard</h1>
 
-      <div className="flex gap-4">
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
-        >
-          Logout
-        </button>
-
-        <button
-          onClick={handleDeleteAccount}
-          className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
-        >
-          Delete Account
-        </button>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+        <StatCard title="Total Rooms" value={stats.total} />
+        <StatCard title="Active Rooms" value={stats.active} />
+        <StatCard title="Completed Rooms" value={stats.completed} />
       </div>
+
+      <h2 className="text-xl font-semibold mb-4">Your Project Rooms</h2>
+      {projects.length === 0 ? (
+        <p className="text-gray-500">No rooms found. Create one to get started!</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map((project) => (
+            <RoomCard key={project.id} project={project} />
+          ))}
+        </div>
+      )}
+    </SidebarLayout>
+  );
+};
+
+const StatCard = ({ title, value }) => (
+  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+    <h2 className="text-lg font-semibold text-gray-600 dark:text-gray-300">{title}</h2>
+    <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
+  </div>
+);
+
+const RoomCard = ({ project }) => {
+  const { name, deadline, phases, members, status } = project;
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md p-5 hover:shadow-lg transition">
+      <h3 className="text-xl font-bold mb-2 text-blue-600 dark:text-blue-400">{name}</h3>
+      <p className="text-gray-700 dark:text-gray-300 mb-1">
+        <strong>Deadline:</strong> {deadline}
+      </p>
+      <p className="text-gray-700 dark:text-gray-300 mb-1">
+        <strong>Phases:</strong> {phases?.length || 0}
+      </p>
+      <p className="text-gray-700 dark:text-gray-300 mb-1">
+        <strong>Members:</strong> {members?.length || 0}
+      </p>
+      <p className="text-sm font-medium mt-2 px-2 inline-block rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white">
+        {status === "completed" ? "✅ Completed" : "🚧 Active"}
+      </p>
     </div>
   );
 };

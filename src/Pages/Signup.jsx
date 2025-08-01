@@ -5,9 +5,12 @@ import {
   sendEmailVerification,
   GoogleAuthProvider,
   signInWithPopup,
+  updateProfile,
 } from "firebase/auth";
 import { auth } from "../firebase";
 import { toast } from "react-toastify";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -39,10 +42,24 @@ const Signup = () => {
 
     try {
       setLoading(true);
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await sendEmailVerification(userCredential.user);
-      localStorage.setItem("tempUser", JSON.stringify({ fullName, email }));
+      const user = userCredential.user;
+
+      await updateProfile(user, { displayName: fullName });
+
+      await sendEmailVerification(user);
       toast.success("Verification email sent. Please verify your email.");
+
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, {
+        uid: user.uid,
+        fullName,
+        email,
+        createdAt: serverTimestamp(),
+      });
+
+      localStorage.setItem("tempUser", JSON.stringify({ fullName, email }));
       navigate("/verify-email");
     } catch (error) {
       toast.error(error.message);
@@ -55,9 +72,21 @@ const Signup = () => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      toast.success("Signed up with Google!");
+      const user = result.user;
+      const name = user.displayName || "User";
+
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, {
+        uid: user.uid,
+        fullName: name,
+        email: user.email,
+        createdAt: serverTimestamp(),
+      }, { merge: true });
+
+      toast.success(`Signed up as ${name}!`);
       navigate("/dashboard");
     } catch (error) {
+      console.error("Google signup error:", error);
       toast.error("Google signup failed.");
     }
   };
@@ -65,7 +94,9 @@ const Signup = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 rounded-lg shadow-lg bg-white dark:bg-gray-800">
-        <h2 className="text-2xl font-bold text-center mb-6 dark:text-white">Create an Account</h2>
+        <h2 className="text-2xl font-bold text-center mb-6 dark:text-white">
+          Create an Account
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
@@ -108,13 +139,19 @@ const Signup = () => {
           </button>
         </form>
 
-        <div className="my-4 text-center text-gray-500 dark:text-gray-300">or</div>
+        <div className="my-4 text-center text-gray-500 dark:text-gray-300">
+          or
+        </div>
 
         <button
           onClick={handleGoogleSignup}
           className="w-full flex items-center justify-center gap-2 bg-white border hover:bg-gray-100 text-black py-2 px-4 rounded transition dark:bg-gray-100"
         >
-          <svg className="w-5 h-5" viewBox="0 0 533.5 544.3" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            className="w-5 h-5"
+            viewBox="0 0 533.5 544.3"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             <path
               d="M533.5 278.4c0-17.7-1.4-35-4.1-51.7H272v97.8h147.5c-6.4 34.4-25.3 63.4-53.8 83.1v68.7h86.9c50.8-46.8 80.9-115.8 80.9-197.9z"
               fill="#4285F4"
