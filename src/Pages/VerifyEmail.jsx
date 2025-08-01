@@ -11,7 +11,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
-
 const VerifyEmail = () => {
   const [user, setUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -27,7 +26,7 @@ const VerifyEmail = () => {
     return () => unsubscribe();
   }, []);
 
-   useEffect(() => {
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
     const oobCode = params.get("oobCode");
@@ -61,7 +60,7 @@ const VerifyEmail = () => {
       setLoading(true);
       await reload(auth.currentUser);
       await sendEmailVerification(auth.currentUser, {
-        url: "http://localhost:5173/email-verified", 
+        url: "http://localhost:5173/email-verified",
         handleCodeInApp: false,
       });
 

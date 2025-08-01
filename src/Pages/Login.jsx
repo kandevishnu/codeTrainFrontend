@@ -10,6 +10,13 @@ import {
 import { auth } from "../firebase";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
@@ -17,7 +24,6 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -54,14 +60,27 @@ const Login = () => {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      const name = result.user.displayName || "User";
-      toast.success(`Welcome back ${name}!`);
+      const user = result.user;
+
+      const userRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(userRef);
+
+      if (!docSnap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          name: user.displayName || "User",
+          email: user.email,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      toast.success(`Welcome back ${user.displayName || "User"}!`);
       navigate("/dashboard");
     } catch (err) {
+      console.error("Google Login Error:", err);
       toast.error("Google login failed");
     }
   };
-
   const handleForgotPassword = async () => {
     const email = formData.email.trim();
 
@@ -155,7 +174,6 @@ const Login = () => {
           onClick={handleGoogleLogin}
           className="w-full flex items-center justify-center gap-2 bg-white border hover:bg-gray-200 text-black py-2 px-4 rounded transition cursor-pointer"
         >
-          {/* Google SVG as-is */}
           <svg
             className="w-5 h-5"
             viewBox="0 0 533.5 544.3"
