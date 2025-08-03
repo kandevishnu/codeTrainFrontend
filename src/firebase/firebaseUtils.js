@@ -1,4 +1,4 @@
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import {
   doc,
   setDoc,
@@ -10,7 +10,6 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { auth } from "../firebase";
 
 
 export const createProject = async (projectData) => {
@@ -40,9 +39,10 @@ export const getProjectsForUser = async () => {
     if (!user) throw new Error("User not logged in");
 
     const q = query(
-      collection(db, "projects"),
-      where("members", "array-contains", user.uid)
+      collection(db, "rooms"),
+      where("memberIds", "array-contains", user.uid)
     );
+
     const snapshot = await getDocs(q);
 
     const projects = snapshot.docs.map((doc) => ({
