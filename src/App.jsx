@@ -34,13 +34,6 @@ const App = () => {
             }
           />
           <Route
-            path="/train-model"
-            element={
-              <ProtectedRoute>
-                <TrainModel />
-              </ProtectedRoute>
-            } />
-          <Route
             path="/signup"
             element={
               <GuestRoute>
