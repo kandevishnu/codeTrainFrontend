@@ -17,6 +17,7 @@ import Profile from "./Pages/Profile";
 import Home from "./Pages/Home";
 import RoomView from "./Pages/RoomView";
 import TrainModel from "./components/TrainModel";
+import EmailVerifiedHandler from "./Pages/EmailVerifiedHandler";
 
 const App = () => {
   const location = useLocation();
@@ -85,6 +86,7 @@ const App = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/email-verified" element={<EmailVerified />} />
+          <Route path="/EmailVerifiedHandler" element={<EmailVerifiedHandler />} />
         </Routes>
       </AnimatePresence>
       <ToastContainer position="top-right" autoClose={3000} />

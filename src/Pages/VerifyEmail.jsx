@@ -16,6 +16,7 @@ const VerifyEmail = () => {
   const [showModal, setShowModal] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const navigate = useNavigate();
 
@@ -24,6 +25,13 @@ const VerifyEmail = () => {
       setUser(currentUser);
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -56,6 +64,8 @@ const VerifyEmail = () => {
 
   const handleResend = async () => {
     if (!auth.currentUser) return toast.error("No user found.");
+    if (cooldown > 0) return toast.info(`Please wait ${cooldown}s to resend.`);
+
     try {
       setLoading(true);
       await reload(auth.currentUser);
@@ -65,9 +75,16 @@ const VerifyEmail = () => {
       });
 
       toast.success("Verification email sent again.");
+      setCooldown(120); // Start 2 min cooldown
     } catch (err) {
-      toast.error("Failed to resend verification email.");
-      console.error(err);
+      if (err.code === "auth/too-many-requests") {
+        toast.error("Too many attempts. Try again later.");
+        await signOut(auth);
+        navigate("/login");
+      } else {
+        toast.error("Failed to resend verification email.");
+        console.error(err);
+      }
     } finally {
       setLoading(false);
     }
@@ -125,14 +142,18 @@ const VerifyEmail = () => {
         </button>
         <button
           onClick={handleResend}
-          disabled={loading}
+          disabled={loading || cooldown > 0}
           className={`border border-cyan-600 text-cyan-600 px-4 py-2 rounded transition ${
-            loading
+            loading || cooldown > 0
               ? "opacity-50 cursor-not-allowed"
               : "hover:bg-cyan-100 dark:hover:bg-gray-800"
           }`}
         >
-          {loading ? "Sending..." : "Resend Email"}
+          {loading
+            ? "Sending..."
+            : cooldown > 0
+            ? `Resend in ${cooldown}s`
+            : "Resend Email"}
         </button>
       </div>
 

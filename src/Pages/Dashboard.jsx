@@ -1,82 +1,215 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { getProjectsForUser } from "../firebase/firebaseUtils";
 import SidebarLayout from "../components/SidebarLayout";
+import { useAuth } from "../routes/AuthContext";
+import { motion } from "framer-motion";
+import { Briefcase, Activity, CheckCircle, Calendar } from "lucide-react";
 
-const Dashboard = () => {
-  const [projects, setProjects] = useState([]);
-  const [stats, setStats] = useState({ total: 0, active: 0, completed: 0 });
-
-  useEffect(() => {
-    const justVerified = localStorage.getItem("justVerified");
-    if (justVerified) {
-      toast.success("Email Verified! Welcome 🎉");
-      localStorage.removeItem("justVerified");
-    }
-
-    const fetchData = async () => {
-      const userProjects = await getProjectsForUser();
-      setProjects(userProjects);
-
-      const total = userProjects.length;
-      const completed = userProjects.filter(p => p.status === "completed").length;
-      const active = total - completed;
-      setStats({ total, active, completed });
-    };
-
-    fetchData();
-  }, []);
-
-  return (
-    <SidebarLayout>
-      <h1 className="text-2xl font-bold mb-6">Welcome to your Dashboard</h1>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-        <StatCard title="Total Rooms" value={stats.total} />
-        <StatCard title="Active Rooms" value={stats.active} />
-        <StatCard title="Completed Rooms" value={stats.completed} />
-      </div>
-
-      <h2 className="text-xl font-semibold mb-4">Your Project Rooms</h2>
-      {projects.length === 0 ? (
-        <p className="text-gray-500">No rooms found. Create one to get started!</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <RoomCard key={project.id} project={project} />
-          ))}
+// --- Animated "Grid" Background Component for consistency ---
+const GridBackground = () => (
+    <>
+        <style>{`
+            @keyframes pan-background {
+                from { background-position: 0% 0%; }
+                to { background-position: -200% 0%; }
+            }
+        `}</style>
+        <div className="absolute inset-0 -z-10 bg-slate-900">
+            <div
+                className="absolute inset-0 opacity-20"
+                style={{
+                    backgroundImage: 'linear-gradient(to right, #4f4f4f2e 1px, transparent 1px), linear-gradient(to bottom, #4f4f4f2e 1px, transparent 1px)',
+                    backgroundSize: '36px 36px',
+                    animation: 'pan-background 75s linear infinite'
+                }}
+            ></div>
         </div>
-      )}
-    </SidebarLayout>
-  );
-};
-
-const StatCard = ({ title, value }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-    <h2 className="text-lg font-semibold text-gray-600 dark:text-gray-300">{title}</h2>
-    <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
-  </div>
+    </>
 );
 
-const RoomCard = ({ project }) => {
-  const { name, deadline, phases, members, status } = project;
-  return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md p-5 hover:shadow-lg transition">
-      <h3 className="text-xl font-bold mb-2 text-blue-600 dark:text-blue-400">{name}</h3>
-      <p className="text-gray-700 dark:text-gray-300 mb-1">
-        <strong>Deadline:</strong> {deadline}
-      </p>
-      <p className="text-gray-700 dark:text-gray-300 mb-1">
-        <strong>Phases:</strong> {phases?.length || 0}
-      </p>
-      <p className="text-gray-700 dark:text-gray-300 mb-1">
-        <strong>Members:</strong> {members?.length || 0}
-      </p>
-      <p className="text-sm font-medium mt-2 px-2 inline-block rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white">
-        {status === "completed" ? "✅ Completed" : "🚧 Active"}
-      </p>
-    </div>
-  );
+// --- Redesigned StatCard with Icons and Animations ---
+const StatCard = ({ title, value, icon, color }) => (
+    <motion.div
+        variants={{
+            hidden: { opacity: 0, y: 20 },
+            visible: { opacity: 1, y: 0 }
+        }}
+        className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex items-center space-x-4"
+    >
+        <div className={`p-3 rounded-lg bg-gradient-to-br ${color}`}>
+            {icon}
+        </div>
+        <div>
+            <p className="text-sm text-gray-400">{title}</p>
+            <p className="text-3xl font-bold text-white">{value}</p>
+        </div>
+    </motion.div>
+);
+
+// --- Animated Completion Gauge (Speedometer) ---
+const CompletionGauge = ({ percentage = 0 }) => {
+    const angle = (percentage / 100) * 180 - 90; // Map percentage to angle from -90 to 90
+    return (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center">
+            <h3 className="text-lg font-semibold text-white mb-4">Completion Rate</h3>
+            <div className="relative w-48 h-24 overflow-hidden">
+                <div className="absolute inset-0 flex items-end justify-center">
+                    <svg width="192" height="96" viewBox="0 0 192 96">
+                        <path
+                            d="M8 88 A 80 80 0 0 1 184 88"
+                            stroke="rgba(255, 255, 255, 0.1)"
+                            strokeWidth="16"
+                            fill="none"
+                            strokeLinecap="round"
+                        />
+                        <motion.path
+                            d="M8 88 A 80 80 0 0 1 184 88"
+                            stroke="url(#gauge-gradient)"
+                            strokeWidth="16"
+                            fill="none"
+                            strokeLinecap="round"
+                            initial={{ strokeDasharray: "0, 251.2" }}
+                            animate={{ strokeDasharray: `${(percentage / 100) * 251.2}, 251.2` }}
+                            transition={{ duration: 1.5, ease: "easeInOut" }}
+                        />
+                        <defs>
+                            <linearGradient id="gauge-gradient">
+                                <stop offset="0%" stopColor="#8A2BE2" />
+                                <stop offset="100%" stopColor="#4F46E5" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <motion.div
+                    className="absolute bottom-0 left-1/2 w-0.5 h-20 bg-white origin-bottom"
+                    style={{ transformOrigin: 'bottom center' }}
+                    initial={{ rotate: -90 }}
+                    animate={{ rotate: angle }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full"></div>
+            </div>
+            <p className="text-4xl font-bold text-white mt-2">{percentage.toFixed(0)}%</p>
+        </div>
+    );
+};
+
+// --- Upcoming Deadlines Component ---
+const UpcomingDeadlines = ({ projects = [] }) => {
+    // Sort projects by deadline and get the next 3
+    const upcoming = projects
+        .filter(p => new Date(p.deadline) >= new Date())
+        .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+        .slice(0, 3);
+
+    return (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Upcoming Deadlines</h3>
+            <div className="space-y-4">
+                {upcoming.length > 0 ? (
+                    upcoming.map(project => (
+                        <div key={project.id} className="flex justify-between items-center">
+                            <p className="font-medium text-gray-300">{project.projectName}</p>
+                            <p className="text-sm text-indigo-400 font-semibold">{new Date(project.deadline).toLocaleDateString()}</p>
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-sm text-gray-500">No upcoming deadlines.</p>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
+// --- Main Dashboard Component ---
+const Dashboard = () => {
+    const { user } = useAuth();
+    const [projects, setProjects] = useState([]);
+    const [stats, setStats] = useState({ total: 0, active: 0, completed: 0 });
+
+    useEffect(() => {
+        const justVerified = localStorage.getItem("justVerified");
+        if (justVerified) {
+            toast.success("Email Verified! Welcome 🎉");
+            localStorage.removeItem("justVerified");
+        }
+
+        const fetchData = async () => {
+            if (!user) return;
+            try {
+                const userProjects = await getProjectsForUser(user.uid);
+                setProjects(userProjects);
+
+                const total = userProjects.length;
+                const completed = userProjects.filter(p => p.status === "Completed").length;
+                const active = total - completed;
+                setStats({ total, active, completed });
+            } catch (error) {
+                console.error("Failed to fetch projects:", error);
+                toast.error("Could not load your projects.");
+            }
+        };
+
+        fetchData();
+    }, [user]);
+
+    const completionPercentage = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+        }
+    };
+
+    return (
+        <SidebarLayout>
+            <div className="relative h-full w-full">
+                <GridBackground />
+                <div className="relative z-10 h-full overflow-y-auto p-8">
+                    <motion.header
+                        initial={{ opacity: 0, y: -30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+                        className="mb-12"
+                    >
+                        <h1 className="text-5xl font-bold text-white tracking-tight">
+                            Welcome, {user?.displayName || 'User'}!
+                        </h1>
+                        <p className="text-gray-400 mt-3 text-lg">Here's a summary of your project activity.</p>
+                    </motion.header>
+
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8"
+                    >
+                        <StatCard title="Total Projects" value={stats.total} icon={<Briefcase size={24} />} color="from-purple-500 to-indigo-500" />
+                        <StatCard title="Active Projects" value={stats.active} icon={<Activity size={24} />} color="from-blue-500 to-cyan-500" />
+                        <StatCard title="Completed" value={stats.completed} icon={<CheckCircle size={24} />} color="from-green-500 to-emerald-500" />
+                    </motion.div>
+
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+                    >
+                        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }} className="lg:col-span-2">
+                            <UpcomingDeadlines projects={projects} />
+                        </motion.div>
+                        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+                            <CompletionGauge percentage={completionPercentage} />
+                        </motion.div>
+                    </motion.div>
+                </div>
+            </div>
+        </SidebarLayout>
+    );
 };
 
 export default Dashboard;
