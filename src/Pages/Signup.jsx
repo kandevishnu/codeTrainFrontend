@@ -43,7 +43,11 @@ const Signup = () => {
     try {
       setLoading(true);
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
       const user = userCredential.user;
 
       await updateProfile(user, { displayName: fullName });
@@ -62,7 +66,11 @@ const Signup = () => {
       localStorage.setItem("tempUser", JSON.stringify({ fullName, email }));
       navigate("/verify-email");
     } catch (error) {
-      toast.error(error.message);
+      if (error.code === "auth/email-already-in-use") {
+        toast.error("Email already in use. Please Login.");
+      } else {
+        toast.error(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -76,12 +84,16 @@ const Signup = () => {
       const name = user.displayName || "User";
 
       const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, {
-        uid: user.uid,
-        fullName: name,
-        email: user.email,
-        createdAt: serverTimestamp(),
-      }, { merge: true });
+      await setDoc(
+        userRef,
+        {
+          uid: user.uid,
+          fullName: name,
+          email: user.email,
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       toast.success(`Signed up as ${name}!`);
       navigate("/dashboard");
