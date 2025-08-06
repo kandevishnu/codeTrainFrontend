@@ -75,7 +75,7 @@ const VerifyEmail = () => {
       });
 
       toast.success("Verification email sent again.");
-      setCooldown(120); // Start 2 min cooldown
+      setCooldown(60);
     } catch (err) {
       if (err.code === "auth/too-many-requests") {
         toast.error("Too many attempts. Try again later.");

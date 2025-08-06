@@ -35,7 +35,6 @@ const EmailVerifiedHandler = () => {
           setMessage("❌ Invalid or expired verification link.");
         });
     } else if (mode === "resetPassword") {
-      // Redirect to reset-password page
       navigate(`/reset-password?${searchParams.toString()}`);
     } else {
       setMessage("❌ Invalid request.");

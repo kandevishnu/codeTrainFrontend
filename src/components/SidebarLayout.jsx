@@ -4,7 +4,6 @@ import { logout } from "../firebase";
 import { toast } from "react-toastify";
 import { LayoutDashboard, Home as HomeIcon, User, LogOut, Layers } from "lucide-react";
 
-// --- Re-styled NavItem Component ---
 const NavItem = ({ to, icon, children }) => (
     <NavLink
         to={to}
@@ -21,7 +20,6 @@ const NavItem = ({ to, icon, children }) => (
     </NavLink>
 );
 
-// --- Redesigned SidebarLayout ---
 const SidebarLayout = ({ children }) => {
     const navigate = useNavigate();
 

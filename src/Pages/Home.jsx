@@ -8,7 +8,6 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Search, X, Briefcase, ArrowRight, Layers, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- New "Grid" Background Component ---
 const GridBackground = () => (
     <>
         <style>{`
@@ -31,7 +30,6 @@ const GridBackground = () => (
 );
 
 
-// --- Refined ProjectCard Component (Reverted to previous style with enhancements) ---
 const ProjectCard = ({ room, onClick }) => (
     <motion.div
         variants={{
@@ -120,7 +118,6 @@ const ProjectCard = ({ room, onClick }) => (
 );
 
 
-// --- MODAL COMPONENTS (Styling updated to match theme) ---
 const InviteMembersModal = ({ isOpen, onClose, onAddMember, currentMembers = [], currentUser }) => {
     const [email, setEmail] = useState("");
     const [searchResult, setSearchResult] = useState(null);
@@ -213,7 +210,6 @@ const CreateRoomModal = ({ isOpen, onClose, onRoomCreated, user }) => {
     );
 };
 
-// --- HOME PAGE COMPONENT ---
 const Home = () => {
     const { user } = useAuth();
     const [showModal, setShowModal] = useState(false);

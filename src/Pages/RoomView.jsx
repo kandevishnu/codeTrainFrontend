@@ -195,7 +195,7 @@ const Countdown = ({ deadline }) => {
     useEffect(() => {
         const timer = setTimeout(() => {
             setTimeLeft(calculateTimeLeft());
-        }, 60000); // Update every minute
+        }, 60000);
         return () => clearTimeout(timer);
     });
 
@@ -216,7 +216,6 @@ const InviteModal = ({ isOpen, onClose, onInviteSent, currentMembers = [] }) => 
     const [isEditingName, setIsEditingName] = useState(false);
 
     useEffect(() => {
-        // Reset state when modal is closed
         if (!isOpen) {
             setTimeout(() => {
                 setEmail("");
@@ -226,14 +225,13 @@ const InviteModal = ({ isOpen, onClose, onInviteSent, currentMembers = [] }) => 
                 setRole("Analyst");
                 setEditableName("");
                 setIsEditingName(false);
-            }, 300); // Delay to allow exit animation
+            }, 300); 
         }
     }, [isOpen]);
 
     const handleSearch = async () => {
         if (!email) return;
 
-        // Edge Case: Check if user is already in the room
         const isAlreadyMember = currentMembers.some(member => member.email === email);
         if (isAlreadyMember) {
             setError("This user is already a member of this project.");
@@ -250,7 +248,7 @@ const InviteModal = ({ isOpen, onClose, onInviteSent, currentMembers = [] }) => 
             if (!querySnapshot.empty) {
                 const userData = querySnapshot.docs[0].data();
                 setSearchResult({ id: querySnapshot.docs[0].id, ...userData });
-                setEditableName(userData.fullName || ""); // Set editable name from search result
+                setEditableName(userData.fullName || "");  
             } else {
                 setError("User not found.");
             }
@@ -266,7 +264,7 @@ const InviteModal = ({ isOpen, onClose, onInviteSent, currentMembers = [] }) => 
         onInviteSent({
             uid: searchResult.id,
             email: searchResult.email,
-            name: editableName, // Use the potentially edited name
+            name: editableName, 
             role: role,
             inviteAccepted: false,
         });
@@ -362,22 +360,20 @@ const RoomView = () => {
             if (docSnap.exists()) {
                 const roomData = docSnap.data();
                 
-                // Populate member data from the 'users' collection
                 const memberPromises = roomData.members.map(async (member) => {
                     if (member.uid) {
                         const userDoc = await getDoc(doc(db, "users", member.uid));
                         if(userDoc.exists()){
-                            // Merge data from users collection and room's member array.
-                            // The name from room.members will override the global user name.
+                            
                             const mergedData = { ...userDoc.data(), ...member };
-                            // Ensure the owner is always marked as an accepted member
+                            
                             if (member.role === 'Owner') {
                                 mergedData.inviteAccepted = true;
                             }
                             return mergedData;
                         }
                     }
-                    return member; // Return member as is if no UID or user not found
+                    return member; 
                 });
                 const populatedMembers = await Promise.all(memberPromises);
 
@@ -395,7 +391,7 @@ const RoomView = () => {
     const handleInviteSent = async (newMember) => {
         if (!roomId) return;
         const roomRef = doc(db, "rooms", roomId);
-        // Add the new member object (which includes name, role, uid, email) to the array
+        
         await updateDoc(roomRef, {
             members: arrayUnion(newMember)
         });
@@ -408,7 +404,7 @@ const RoomView = () => {
         return <div className="flex items-center justify-center h-screen bg-gray-900 text-lg font-semibold text-red-400">Could not find the requested project room.</div>;
     }
 
-    const currentUser = room.members.find(m => m.role === 'Owner'); // Simplified for example
+    const currentUser = room.members.find(m => m.role === 'Owner');
 
     return (
         <div className="h-screen bg-gray-900 text-white font-sans flex flex-col">

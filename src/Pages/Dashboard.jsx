@@ -6,7 +6,6 @@ import { useAuth } from "../routes/AuthContext";
 import { motion } from "framer-motion";
 import { Briefcase, Activity, CheckCircle, Calendar } from "lucide-react";
 
-// --- Animated "Grid" Background Component for consistency ---
 const GridBackground = () => (
     <>
         <style>{`
@@ -28,7 +27,6 @@ const GridBackground = () => (
     </>
 );
 
-// --- Redesigned StatCard with Icons and Animations ---
 const StatCard = ({ title, value, icon, color }) => (
     <motion.div
         variants={{
@@ -47,9 +45,8 @@ const StatCard = ({ title, value, icon, color }) => (
     </motion.div>
 );
 
-// --- Animated Completion Gauge (Speedometer) ---
 const CompletionGauge = ({ percentage = 0 }) => {
-    const angle = (percentage / 100) * 180 - 90; // Map percentage to angle from -90 to 90
+    const angle = (percentage / 100) * 180 - 90; 
     return (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center">
             <h3 className="text-lg font-semibold text-white mb-4">Completion Rate</h3>
@@ -95,9 +92,7 @@ const CompletionGauge = ({ percentage = 0 }) => {
     );
 };
 
-// --- Upcoming Deadlines Component ---
 const UpcomingDeadlines = ({ projects = [] }) => {
-    // Sort projects by deadline and get the next 3
     const upcoming = projects
         .filter(p => new Date(p.deadline) >= new Date())
         .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
@@ -123,7 +118,6 @@ const UpcomingDeadlines = ({ projects = [] }) => {
 };
 
 
-// --- Main Dashboard Component ---
 const Dashboard = () => {
     const { user } = useAuth();
     const [projects, setProjects] = useState([]);
