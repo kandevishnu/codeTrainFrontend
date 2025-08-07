@@ -3,6 +3,9 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { AnimatePresence } from "framer-motion";
 import "react-toastify/dist/ReactToastify.css";
+import { getDatabase, ref, onValue, onDisconnect, set } from "firebase/database";
+import { auth } from "./firebase";
+import { InviteProvider } from './context/InviteContext';
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 import GuestRoute from "./routes/GuestRoute";
@@ -18,12 +21,40 @@ import Home from "./Pages/Home";
 import RoomView from "./Pages/RoomView";
 import TrainModel from "./components/TrainModel";
 import EmailVerifiedHandler from "./Pages/EmailVerifiedHandler";
+import Invites from "./Pages/Invites";
+
+function manageUserPresence() {
+  const uid = auth.currentUser.uid;
+  const db = getDatabase();
+  const userStatusDatabaseRef = ref(db, '/status/' + uid);
+
+  const isOfflineForDatabase = {
+    state: 'offline',
+    last_changed: serverTimestamp(),
+  };
+
+  const isOnlineForDatabase = {
+    state: 'online',
+    last_changed: serverTimestamp(),
+  };
+
+  onValue(ref(db, '.info/connected'), (snapshot) => {
+    if (snapshot.val() === false) {
+      return;
+    }
+
+    onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+      set(userStatusDatabaseRef, isOnlineForDatabase);
+    });
+  });
+}
 
 const App = () => {
   const location = useLocation();
 
   return (
     <>
+    <InviteProvider>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route
@@ -67,6 +98,7 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="/invites" element={<Invites />} />
           <Route
             path="/profile"
             element={
@@ -90,6 +122,7 @@ const App = () => {
         </Routes>
       </AnimatePresence>
       <ToastContainer position="top-right" autoClose={3000} />
+      </InviteProvider>
     </>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import { auth, db } from "../firebase";
@@ -6,7 +6,7 @@ import { doc, deleteDoc, updateDoc, getDoc, collection, query, where, getDocs } 
 import { toast } from "react-toastify";
 import SidebarLayout from "../components/SidebarLayout";
 import { motion } from "framer-motion";
-import { Settings, Edit, Check, Shield, AlertTriangle, Github, Linkedin, Globe, Plus, BrainCircuit, BarChart2, X } from "lucide-react";
+import { Settings, Edit, Check, Shield, AlertTriangle, Github, Linkedin, Globe, Plus, BrainCircuit, BarChart2, X, User as UserIcon, Loader } from "lucide-react";
 import { sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import stringSimilarity from 'string-similarity';
 
@@ -39,9 +39,7 @@ const SkillTag = ({ skill, onRemove, isEditing }) => {
         }
         return name.slice(0, 2).toUpperCase();
     };
-    
     const normalizedSkill = skill.toLowerCase().replace('.', 'dot').replace(' ', '');
-
     return (
         <div className="flex items-center gap-2 bg-slate-700 rounded-full px-3 py-1 text-sm font-medium">
             <img 
@@ -64,10 +62,7 @@ const SettingsModal = ({ isOpen, onClose, onPasswordReset, onDeleteClick }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-lg">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-white">Settings</h2>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-700"><X/></button>
-                </div>
+                <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Settings</h2><button onClick={onClose} className="p-2 rounded-full hover:bg-slate-700"><X/></button></div>
                 <div className="mt-6 space-y-8">
                     <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6"><h2 className="text-xl font-bold text-white flex items-center"><Shield className="mr-3 text-indigo-400"/>Security</h2><div className="mt-4 flex justify-between items-center"><p className="text-gray-400">Reset your password via email.</p><button onClick={onPasswordReset} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold">Send Link</button></div></div>
                     <div className="bg-slate-800/50 border border-red-500/30 rounded-2xl p-6"><h2 className="text-xl font-bold text-red-400 flex items-center"><AlertTriangle className="mr-3"/>Danger Zone</h2><div className="mt-4 flex justify-between items-center"><div><h3 className="font-semibold text-white">Delete this account</h3><p className="text-gray-400 text-sm">Once deleted, there is no going back.</p></div><button onClick={onDeleteClick} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold">Delete</button></div></div>
@@ -118,6 +113,10 @@ const DeleteAccountModal = ({ isOpen, onClose, onDeleteConfirm }) => {
 const Profile = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
+
+    const CLOUDINARY_CLOUD_NAME = "dw3phay5u"; 
+    const CLOUDINARY_UPLOAD_PRESET = "ssbxzz7h";
     
     const [isEditingName, setIsEditingName] = useState(false);
     const [isEditingBio, setIsEditingBio] = useState(false);
@@ -125,12 +124,14 @@ const Profile = () => {
     const [isEditingSocials, setIsEditingSocials] = useState(false);
 
     const [displayName, setDisplayName] = useState(user?.displayName || '');
+    const [photoURL, setPhotoURL] = useState(user?.photoURL || null);
     const [bio, setBio] = useState('');
     const [skills, setSkills] = useState([]);
     const [newSkill, setNewSkill] = useState('');
     const [socialLinks, setSocialLinks] = useState({ github: '', linkedin: '', portfolio: '' });
     const [stats, setStats] = useState({ roomsJoined: 0, roomsCreated: 0, tasksCompleted: 0 });
 
+    const [isUploading, setIsUploading] = useState(false);
     const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
 
@@ -144,6 +145,7 @@ const Profile = () => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     setDisplayName(data.fullName || user.displayName);
+                    setPhotoURL(data.photoURL || user.photoURL);
                     setBio(data.bio || 'No bio yet. Click edit to add one!');
                     setSkills(data.skills || []);
                     setSocialLinks(data.socialLinks || { github: '', linkedin: '', portfolio: '' });
@@ -159,7 +161,7 @@ const Profile = () => {
                     getDocs(roomsCreatedQuery)
                 ]);
 
-                const tasksCompleted = 0; // Placeholder
+                const tasksCompleted = 0; 
 
                 setStats({
                     roomsJoined: joinedSnapshot.size,
@@ -181,57 +183,71 @@ const Profile = () => {
             toast.error(`Failed to update ${field}.`);
         }
     };
+    
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !user) return;
+
+        if (CLOUDINARY_CLOUD_NAME === "YOUR_CLOUD_NAME" || CLOUDINARY_UPLOAD_PRESET === "YOUR_UPLOAD_PRESET") {
+            toast.error("Please configure Cloudinary details in the code first.");
+            return;
+        }
+
+        setIsUploading(true);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+        try {
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.secure_url) {
+                const newPhotoURL = data.secure_url;
+                setPhotoURL(newPhotoURL);
+                await handleSave('photoURL', newPhotoURL);
+                toast.success("Profile picture updated!");
+            } else {
+                throw new Error("Upload failed, no secure URL returned.");
+            }
+        } catch (error) {
+            toast.error("Failed to upload image.");
+            console.error(error);
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const addSkill = (skillToAdd) => {
         if (!skillToAdd) return;
-
         const matches = stringSimilarity.findBestMatch(skillToAdd.toLowerCase(), popularSkills.map(s => s.toLowerCase()));
         const bestMatch = matches.bestMatch;
-
         let finalSkill = skillToAdd;
         if (bestMatch.rating > 0.7) {
             finalSkill = popularSkills[popularSkills.map(s => s.toLowerCase()).indexOf(bestMatch.target)];
         } else {
             finalSkill = skillToAdd.charAt(0).toUpperCase() + skillToAdd.slice(1);
         }
-        
         if (skills.map(s => s.toLowerCase()).includes(finalSkill.toLowerCase())) {
             toast.error(`"${finalSkill}" is already in your tech stack.`);
             return;
         }
-        
         setSkills([...skills, finalSkill]);
         setNewSkill('');
     };
-
-    const handleRemoveSkill = (skillToRemove) => {
-        setSkills(skills.filter(skill => skill !== skillToRemove));
-    };
-
-    const handlePasswordReset = async () => {
-        if (!user?.email) { toast.error("No email found."); return; }
-        try {
-            await sendPasswordResetEmail(auth, user.email);
-            toast.success("Password reset email sent!");
-        } catch (error) {
-            toast.error("Failed to send password reset email.");
-        }
-    };
-
-    const handleDeleteAccount = async (password) => {
-        if (!user) throw new Error("No user found");
-        const credential = EmailAuthProvider.credential(user.email, password);
-        await reauthenticateWithCredential(user, credential);
-        await deleteDoc(doc(db, "users", user.uid));
-        await user.delete();
-        toast.success("Account deleted permanently.");
-        navigate("/signup");
-    };
+    const handleRemoveSkill = (skillToRemove) => { setSkills(skills.filter(skill => skill !== skillToRemove)); };
+    const handlePasswordReset = async () => { if (!user?.email) { toast.error("No email found."); return; } try { await sendPasswordResetEmail(auth, user.email); toast.success("Password reset email sent!"); } catch (error) { toast.error("Failed to send password reset email."); } };
+    const handleDeleteAccount = async (password) => { if (!user) throw new Error("No user found"); const credential = EmailAuthProvider.credential(user.email, password); await reauthenticateWithCredential(user, credential); await deleteDoc(doc(db, "users", user.uid)); await user.delete(); toast.success("Account deleted permanently."); navigate("/signup"); };
 
     return (
         <SidebarLayout>
             <div className="relative h-full w-full">
                 <GridBackground />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                 <div className="relative z-10 h-full overflow-y-auto p-8">
                     <motion.header initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="flex justify-between items-center">
                         <h1 className="text-5xl font-bold text-white tracking-tight">My Profile</h1>
@@ -242,7 +258,18 @@ const Profile = () => {
                         {/* Left Column: Profile Card & Socials */}
                         <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="lg:col-span-1 space-y-8">
                             <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 text-center flex flex-col items-center">
-                                <div className="relative group"><img src={`https://api.dicebear.com/8.x/adventurer/svg?seed=${displayName}`} alt="Profile" className="w-32 h-32 rounded-full border-4 border-indigo-500" /><button onClick={() => toast.info("Image upload feature coming soon!")} className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Edit size={24} /></button></div>
+                                <div className="relative group">
+                                    {photoURL ? (
+                                        <img src={photoURL} alt="Profile" className="w-32 h-32 rounded-full border-4 border-indigo-500 object-cover" />
+                                    ) : (
+                                        <div className="w-32 h-32 rounded-full border-4 border-indigo-500 bg-slate-700 flex items-center justify-center">
+                                            <UserIcon size={64} className="text-slate-500" />
+                                        </div>
+                                    )}
+                                    <button onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {isUploading ? <Loader className="animate-spin" /> : <Edit size={24} />}
+                                    </button>
+                                </div>
                                 <div className="mt-6 w-full">{isEditingName ? (<div className="flex items-center gap-2"><input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={50} className="w-full bg-slate-700 text-2xl font-bold text-center rounded-lg p-1" /><button onClick={() => { handleSave('fullName', displayName); setIsEditingName(false); }} className="p-2 text-green-400 hover:bg-slate-700 rounded-full"><Check /></button></div>) : (<div className="flex items-center justify-center gap-2"><h2 className="text-3xl font-bold">{displayName}</h2><button onClick={() => setIsEditingName(true)} className="p-2 text-gray-400 hover:text-white hover:bg-slate-700 rounded-full"><Edit size={18}/></button></div>)}<p className="text-indigo-400 mt-1">{user?.email}</p></div>
                                 <div className="mt-6 text-left w-full border-t border-slate-700 pt-6"><div className="flex justify-between items-center"><h3 className="font-semibold text-gray-300">Bio</h3><button onClick={() => isEditingBio ? (handleSave('bio', bio), setIsEditingBio(false)) : setIsEditingBio(true)} className={`p-2 rounded-full hover:bg-slate-700 ${isEditingBio ? 'text-green-400' : 'text-gray-400 hover:text-white'}`}>{isEditingBio ? <Check /> : <Edit size={16} />}</button></div>{isEditingBio ? (<><textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={300} className="w-full h-24 mt-2 bg-slate-700 rounded-lg p-2 text-sm text-gray-300"></textarea><p className="text-xs text-right text-gray-400">{bio.length}/300</p></>) : (<p className="text-sm text-gray-400 mt-2">{bio}</p>)}</div>
                             </div>

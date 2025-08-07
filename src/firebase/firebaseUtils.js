@@ -116,3 +116,55 @@ export const createPhasesForProject = async (projectId, phases) => {
     throw error;
   }
 };
+
+export const getPendingInvitesForUser = async (userId) => {
+  if (!userId) return [];
+  
+  const roomsRef = collection(db, "rooms");
+  const q = query(roomsRef, where("memberIds", "array-contains", userId));
+
+  const querySnapshot = await getDocs(q);
+  const invites = [];
+
+  for (const docSnap of querySnapshot.docs) {
+    const roomData = docSnap.data();
+    const member = roomData.members.find(
+      (m) => m.uid === userId && m.inviteAccepted === false
+    );
+
+    if (member) {
+      const ownerDocRef = doc(db, "users", roomData.ownerId);
+      const ownerDoc = await getDoc(ownerDocRef);
+      const ownerName = ownerDoc.exists() ? ownerDoc.data().fullName : "A Team Owner";
+
+      invites.push({
+        roomId: docSnap.id,
+        ...roomData,
+        role: member.role,
+        ownerName: ownerName,
+      });
+    }
+  }
+  return invites;
+};
+
+export const acceptInvite = async (roomId, userId) => {
+  const roomRef = doc(db, "rooms", roomId);
+  const roomSnap = await getDoc(roomRef);
+
+  if (!roomSnap.exists()) {
+    throw new Error("Room not found!");
+  }
+
+  const roomData = roomSnap.data();
+  const updatedMembers = roomData.members.map((member) => {
+    if (member.uid === userId) {
+      return { ...member, inviteAccepted: true };
+    }
+    return member;
+  });
+
+  await updateDoc(roomRef, {
+    members: updatedMembers,
+  });
+};
