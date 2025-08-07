@@ -117,7 +117,6 @@ const TabButton = ({ label, isActive, onClick }) => (
 );
 
 
-// --- Updated MembersList with Status Indicator ---
 const MembersList = ({ members, onInvite }) => {
     const acceptedMembers = members.filter(m => m.inviteAccepted);
     const pendingMembers = members.filter(m => !m.inviteAccepted);
@@ -375,7 +374,6 @@ const RoomView = () => {
     const [activeView, setActiveView] = useState('overview'); 
     const [isInviteModalOpen, setInviteModalOpen] = useState(false);
 
-    // Effect to update the current user's "lastSeen" status
     useEffect(() => {
         if (!user) return;
         const userDocRef = doc(db, "users", user.uid);
@@ -386,7 +384,6 @@ const RoomView = () => {
         return () => clearInterval(interval);
     }, [user]);
 
-    // Effect to get the basic room data
     useEffect(() => {
         if (!roomId) return;
         const roomRef = doc(db, "rooms", roomId);
@@ -401,7 +398,6 @@ const RoomView = () => {
         return () => unsubscribe();
     }, [roomId]);
 
-    // **UPDATED EFFECT**: Listens for real-time status and enforces Owner status
     useEffect(() => {
         if (!room?.members) {
             setMembersWithStatus([]);

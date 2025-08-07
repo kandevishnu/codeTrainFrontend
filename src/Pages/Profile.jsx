@@ -161,7 +161,7 @@ const Profile = () => {
                     getDocs(roomsCreatedQuery)
                 ]);
 
-                const tasksCompleted = 0; // Placeholder
+                const tasksCompleted = 0; 
 
                 setStats({
                     roomsJoined: joinedSnapshot.size,
