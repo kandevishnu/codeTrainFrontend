@@ -3,6 +3,8 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { AnimatePresence } from "framer-motion";
 import "react-toastify/dist/ReactToastify.css";
+import { getDatabase, ref, onValue, onDisconnect, set } from "firebase/database";
+import { auth } from "./firebase";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 import GuestRoute from "./routes/GuestRoute";
@@ -18,6 +20,35 @@ import Home from "./Pages/Home";
 import RoomView from "./Pages/RoomView";
 import TrainModel from "./components/TrainModel";
 import EmailVerifiedHandler from "./Pages/EmailVerifiedHandler";
+
+function manageUserPresence() {
+  const uid = auth.currentUser.uid;
+  const db = getDatabase();
+  const userStatusDatabaseRef = ref(db, '/status/' + uid);
+
+  const isOfflineForDatabase = {
+    state: 'offline',
+    last_changed: serverTimestamp(),
+  };
+
+  const isOnlineForDatabase = {
+    state: 'online',
+    last_changed: serverTimestamp(),
+  };
+
+  // Check connection status
+  onValue(ref(db, '.info/connected'), (snapshot) => {
+    if (snapshot.val() === false) {
+      return;
+    }
+
+    // If we lose connection, set the user's status to offline
+    onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+      // When connection is re-established, set status to online
+      set(userStatusDatabaseRef, isOnlineForDatabase);
+    });
+  });
+}
 
 const App = () => {
   const location = useLocation();

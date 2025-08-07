@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { doc, getDoc, onSnapshot, query, collection, where, getDocs, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp, arrayUnion, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
+import { useAuth } from "../routes/AuthContext";
 import TrainModel from "../components/TrainModel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Clock, Users, User, Box, LayoutDashboard, CheckSquare,
     BarChart3, Settings, Plus, Edit, Paperclip, Trash2,
-    Search, Phone, Video, ScreenShare, Bell, X
+    Search, Phone, Video, ScreenShare, Bell, X, User as UserIcon
 } from "lucide-react";
+
 
 const StatCard = ({ icon, label, value }) => (
     <div className="bg-gray-800/50 p-4 rounded-lg flex items-center space-x-4">
@@ -114,9 +116,19 @@ const TabButton = ({ label, isActive, onClick }) => (
     </button>
 );
 
+
+// --- Updated MembersList with Status Indicator ---
 const MembersList = ({ members, onInvite }) => {
     const acceptedMembers = members.filter(m => m.inviteAccepted);
     const pendingMembers = members.filter(m => !m.inviteAccepted);
+
+    const getStatus = (lastSeen) => {
+        if (!lastSeen?.toDate) return { color: 'bg-gray-500', text: 'Offline' };
+        const minutesAgo = (new Date() - lastSeen.toDate()) / 60000;
+        if (minutesAgo < 5) return { color: 'bg-green-500', text: 'Online' };
+        if (minutesAgo < 30) return { color: 'bg-yellow-500', text: `Last seen ${Math.floor(minutesAgo)}m ago` };
+        return { color: 'bg-gray-500', text: 'Offline' };
+    };
 
     return (
     <div>
@@ -128,21 +140,30 @@ const MembersList = ({ members, onInvite }) => {
             </button>
         </div>
         <div className="space-y-3">
-            {acceptedMembers.map(member => (
-                <div key={member.uid} className="flex items-center space-x-3 group">
-                    <div className="relative">
-                        <img src={`https://api.dicebear.com/8.x/adventurer/svg?seed=${member.name}`} alt={member.name} className="w-10 h-10 rounded-full" />
-                        {member.isOnline && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800" title="Online"></span>}
+            {acceptedMembers.map(member => {
+                const status = getStatus(member.lastSeen);
+                return (
+                    <div key={member.uid} className="flex items-center space-x-3 group">
+                        <div className="relative">
+                            {member.photoURL ? (
+                                <img src={member.photoURL} alt={member.name} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                                    <UserIcon size={20} className="text-slate-400" />
+                                </div>
+                            )}
+                            <span className={`absolute bottom-0 right-0 w-3 h-3 ${status.color} rounded-full border-2 border-gray-800`} title={status.text}></span>
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-medium text-white text-sm">{member.name}</p>
+                            <p className="text-xs text-gray-400">{member.role}</p>
+                        </div>
+                        <button className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-500 transition-opacity">
+                            <Trash2 size={16} />
+                        </button>
                     </div>
-                    <div className="flex-1">
-                        <p className="font-medium text-white text-sm">{member.name}</p>
-                        <p className="text-xs text-gray-400">{member.role}</p>
-                    </div>
-                    <button className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-500 transition-opacity">
-                        <Trash2 size={16} />
-                    </button>
-                </div>
-            ))}
+                )
+            })}
         </div>
         {pendingMembers.length > 0 && (
              <div className="mt-6">
@@ -155,6 +176,7 @@ const MembersList = ({ members, onInvite }) => {
     </div>
     )
 };
+
 
 const ActivityFeed = () => (
     <div>
@@ -341,57 +363,84 @@ const InviteModal = ({ isOpen, onClose, onInviteSent, currentMembers = [] }) => 
             </motion.div>
         </div>
     )
-}
+};
 
 
 const RoomView = () => {
     const { roomId } = useParams();
+    const { user } = useAuth();
     const [room, setRoom] = useState(null);
+    const [membersWithStatus, setMembersWithStatus] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeView, setActiveView] = useState('overview'); 
     const [isInviteModalOpen, setInviteModalOpen] = useState(false);
 
+    // Effect to update the current user's "lastSeen" status
+    useEffect(() => {
+        if (!user) return;
+        const userDocRef = doc(db, "users", user.uid);
+        updateDoc(userDocRef, { lastSeen: serverTimestamp() });
+        const interval = setInterval(() => {
+            updateDoc(userDocRef, { lastSeen: serverTimestamp() });
+        }, 60 * 1000);
+        return () => clearInterval(interval);
+    }, [user]);
+
+    // Effect to get the basic room data
     useEffect(() => {
         if (!roomId) return;
-
         const roomRef = doc(db, "rooms", roomId);
-
-        const unsubscribe = onSnapshot(roomRef, async (docSnap) => {
+        const unsubscribe = onSnapshot(roomRef, (docSnap) => {
             if (docSnap.exists()) {
-                const roomData = docSnap.data();
-                
-                const memberPromises = roomData.members.map(async (member) => {
-                    if (member.uid) {
-                        const userDoc = await getDoc(doc(db, "users", member.uid));
-                        if(userDoc.exists()){
-                            
-                            const mergedData = { ...userDoc.data(), ...member };
-                            
-                            if (member.role === 'Owner') {
-                                mergedData.inviteAccepted = true;
-                            }
-                            return mergedData;
-                        }
-                    }
-                    return member; 
-                });
-                const populatedMembers = await Promise.all(memberPromises);
-
-                setRoom({ ...roomData, id: docSnap.id, members: populatedMembers });
+                setRoom({ id: docSnap.id, ...docSnap.data() });
             } else {
-                console.log("No such document!");
                 setRoom(null);
             }
             setLoading(false);
         });
-
         return () => unsubscribe();
     }, [roomId]);
+
+    // **UPDATED EFFECT**: Listens for real-time status and enforces Owner status
+    useEffect(() => {
+        if (!room?.members) {
+            setMembersWithStatus([]);
+            return;
+        }
+
+        const initialMembers = room.members.map(m =>
+            m.role === 'Owner' ? { ...m, inviteAccepted: true } : m
+        );
+        setMembersWithStatus(initialMembers);
+
+        const unsubscribers = room.members.map(member => {
+            const userDocRef = doc(db, "users", member.uid);
+            return onSnapshot(userDocRef, (userDoc) => {
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    setMembersWithStatus(prevMembers => 
+                        prevMembers.map(prevMember => {
+                            if (prevMember.uid === member.uid) {
+                                const updatedMember = { ...prevMember, ...userData, name: prevMember.name };
+                                if (updatedMember.role === 'Owner') {
+                                    updatedMember.inviteAccepted = true;
+                                }
+                                return updatedMember;
+                            }
+                            return prevMember;
+                        })
+                    );
+                }
+            });
+        });
+
+        return () => unsubscribers.forEach(unsub => unsub());
+
+    }, [room?.members]);
 
     const handleInviteSent = async (newMember) => {
         if (!roomId) return;
         const roomRef = doc(db, "rooms", roomId);
-        
         await updateDoc(roomRef, {
             members: arrayUnion(newMember)
         });
@@ -404,7 +453,7 @@ const RoomView = () => {
         return <div className="flex items-center justify-center h-screen bg-gray-900 text-lg font-semibold text-red-400">Could not find the requested project room.</div>;
     }
 
-    const currentUser = room.members.find(m => m.role === 'Owner');
+    const currentUser = membersWithStatus.find(m => m.role === 'Owner');
 
     return (
         <div className="h-screen bg-gray-900 text-white font-sans flex flex-col">
@@ -414,7 +463,7 @@ const RoomView = () => {
                         isOpen={isInviteModalOpen}
                         onClose={() => setInviteModalOpen(false)}
                         onInviteSent={handleInviteSent}
-                        currentMembers={room.members}
+                        currentMembers={membersWithStatus}
                     />
                 )}
              </AnimatePresence>
@@ -449,8 +498,8 @@ const RoomView = () => {
                                          </div>
                                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                              <StatCard icon={<Clock size={24} className="text-indigo-300" />} label="Progress" value={`${room.progress || 0}%`} />
-                                             <StatCard icon={<Users size={24} className="text-indigo-300" />} label="Members" value={room.members.filter(m => m.inviteAccepted).length} />
-                                             <StatCard icon={<User size={24} className="text-indigo-300" />} label="Project Creator" value={room.members.find(m => m.role === 'Owner')?.name || 'N/A'} />
+                                             <StatCard icon={<Users size={24} className="text-indigo-300" />} label="Members" value={membersWithStatus.filter(m => m.inviteAccepted).length} />
+                                             <StatCard icon={<User size={24} className="text-indigo-300" />} label="Project Creator" value={currentUser?.name || 'N/A'} />
                                              <StatCard icon={<Box size={24} className="text-indigo-300" />} label="Total Phases" value={room.sdlcPhases.length} />
                                          </div>
                                      </>
@@ -463,7 +512,7 @@ const RoomView = () => {
                      </main>
                  </div>
 
-                 <CollaborationPanel members={room.members} onInvite={() => setInviteModalOpen(true)} />
+                 <CollaborationPanel members={membersWithStatus} onInvite={() => setInviteModalOpen(true)} />
              </div>
         </div>
     );

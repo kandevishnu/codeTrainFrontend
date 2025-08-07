@@ -3,9 +3,9 @@ import SidebarLayout from "../components/SidebarLayout";
 import { Dialog, Transition } from "@headlessui/react";
 import { db } from "../firebase";
 import { useAuth } from "../routes/AuthContext";
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, X, Briefcase, ArrowRight, Layers, Calendar } from 'lucide-react';
+import { Plus, Search, X, Briefcase, ArrowRight, Layers, Calendar, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
 
 const GridBackground = () => (
@@ -45,7 +45,7 @@ const ProjectCard = ({ room, onClick }) => (
         onClick={onClick}
         className="group cursor-pointer rounded-2xl bg-slate-800/50 border border-slate-700 p-6 shadow-lg flex flex-col justify-between"
     >
-        <div className="p-6">
+        <div>
             <div className="flex justify-between items-start">
                 <h3 className="text-xl font-bold text-white truncate group-hover:text-indigo-300 transition-colors">
                     {room.projectName}
@@ -89,16 +89,22 @@ const ProjectCard = ({ room, onClick }) => (
             </div>
         </div>
 
-        <div className="bg-black/30 px-6 py-4 flex items-center justify-between border-t border-white/10">
+        <div className="bg-black/30 px-6 py-4 flex items-center justify-between border-t border-white/10 -mx-6 -mb-6 mt-6 rounded-b-2xl">
             <div className="flex items-center -space-x-3">
                 {room.members?.slice(0, 4).map((member) => (
-                    <img
-                        key={member.uid || member.email}
-                        src={`https://api.dicebear.com/8.x/adventurer/svg?seed=${member.name}`}
-                        alt={member.name}
-                        className="w-10 h-10 rounded-full border-2 border-slate-700"
-                        title={member.name}
-                    />
+                    member.photoURL ? (
+                        <img
+                            key={member.uid}
+                            src={member.photoURL}
+                            alt={member.name}
+                            className="w-10 h-10 rounded-full border-2 border-slate-700 object-cover"
+                            title={member.name}
+                        />
+                    ) : (
+                        <div key={member.uid} className="w-10 h-10 rounded-full border-2 border-slate-700 bg-slate-600 flex items-center justify-center" title={member.name}>
+                            <UserIcon size={20} className="text-slate-400" />
+                        </div>
+                    )
                 ))}
                 {room.members?.length > 4 && (
                     <div className="w-10 h-10 rounded-full border-2 border-slate-700 bg-slate-800 flex items-center justify-center text-xs font-semibold">
@@ -224,7 +230,22 @@ const Home = () => {
             try {
                 const q = query(collection(db, "rooms"), where("memberIds", "array-contains", user.uid));
                 const snapshot = await getDocs(q);
-                const roomData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+                const roomData = await Promise.all(snapshot.docs.map(async (docSnapshot) => {
+                    const room = { id: docSnapshot.id, ...docSnapshot.data() };
+                    
+                    const populatedMembers = await Promise.all(room.members.map(async (member) => {
+                        const userDocRef = doc(db, "users", member.uid);
+                        const userDoc = await getDoc(userDocRef);
+                        if (userDoc.exists()) {
+                            return { ...userDoc.data(), ...member, name: member.name };
+                        }
+                        return member;
+                    }));
+
+                    return { ...room, members: populatedMembers };
+                }));
+
                 setRooms(roomData);
             } catch (err) {
                 console.error("Error fetching rooms:", err);
