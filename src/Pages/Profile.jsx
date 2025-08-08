@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import SidebarLayout from "../components/SidebarLayout";
 import { motion } from "framer-motion";
 import { Settings, Edit, Check, Shield, AlertTriangle, Github, Linkedin, Globe, Plus, BrainCircuit, BarChart2, X, User as UserIcon, Loader } from "lucide-react";
-import { sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, updateProfile  } from "firebase/auth";
 import stringSimilarity from 'string-similarity';
 
 const GridBackground = () => (
@@ -174,15 +174,28 @@ const Profile = () => {
     }, [user]);
 
     const handleSave = async (field, value) => {
-        if (!user) return;
-        const userDocRef = doc(db, "users", user.uid);
-        try {
-            await updateDoc(userDocRef, { [field]: value });
-            toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated!`);
-        } catch (error) {
-            toast.error(`Failed to update ${field}.`);
+    if (!auth.currentUser) return;
+    const user = auth.currentUser;
+    const userDocRef = doc(db, "users", user.uid);
+
+    try {
+        await updateDoc(userDocRef, { [field]: value });
+
+        if (field === 'fullName') {
+            await updateProfile(user, {
+                displayName: value
+            });
         }
-    };
+
+        toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated!`);
+
+        window.location.reload();
+
+    } catch (error) {
+        toast.error(`Failed to update ${field}.`);
+        console.error("Error updating profile:", error);
+    }
+};
     
     const handleFileChange = async (e) => {
         const file = e.target.files[0];

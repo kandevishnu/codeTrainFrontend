@@ -32,12 +32,16 @@ export const createProject = async (projectData) => {
   }
 };
 
-
 export const getProjectsForUser = async () => {
   try {
     const user = auth.currentUser;
-    if (!user) throw new Error("User not logged in");
+    if (!user) {
+      // It's better to return an empty array than throw an error here
+      // because the UI can gracefully handle an empty list.
+      return [];
+    }
 
+    // This query correctly gets all rooms the user is potentially a member of.
     const q = query(
       collection(db, "rooms"),
       where("memberIds", "array-contains", user.uid)
@@ -45,12 +49,26 @@ export const getProjectsForUser = async () => {
 
     const snapshot = await getDocs(q);
 
-    const projects = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const projects = [];
+    snapshot.forEach((doc) => {
+      const roomData = doc.data();
+      
+      // **THE FIX:** Now, we check the 'members' array inside the room data.
+      const isAcceptedMember = roomData.members.some(
+        (member) => member.uid === user.uid && member.inviteAccepted === true
+      );
+
+      // Only add the project to the final list if the user has accepted the invite.
+      if (isAcceptedMember) {
+        projects.push({
+          id: doc.id,
+          ...roomData,
+        });
+      }
+    });
 
     return projects;
+
   } catch (error) {
     console.error("Error fetching user projects:", error);
     return [];

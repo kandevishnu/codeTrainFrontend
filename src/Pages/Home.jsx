@@ -183,25 +183,39 @@ const CreateRoomModal = ({ isOpen, onClose, onRoomCreated, user }) => {
     const handleAddMember = (newMember) => { setMembers(prev => [...prev, newMember]); };
 
     const handleCreateRoom = async () => {
-        setError("");
-        if (!projectName || !deadline || sdlcPhases.length === 0) { setError("Please fill all fields and select at least one phase."); return; }
-        setIsCreating(true);
-        const combinedMembers = [ ...members, { uid: user.uid, email: user.email, name: user.displayName, role: "Owner", inviteAccepted: true }];
-        const uniqueMembersMap = new Map();
-        combinedMembers.forEach(member => { uniqueMembersMap.set(member.uid, member); });
-        const finalMembers = Array.from(uniqueMembersMap.values());
-        const memberIds = finalMembers.map(m => m.uid);
+    setError("");
+    if (!projectName || !deadline || sdlcPhases.length === 0) {
+        setError("Please fill all fields and select at least one phase.");
+        return;
+    }
+    setIsCreating(true);
+    const combinedMembers = [ ...members, { uid: user.uid, email: user.email, name: user.displayName, role: "Owner", inviteAccepted: true }];
+    const uniqueMembersMap = new Map();
+    combinedMembers.forEach(member => { uniqueMembersMap.set(member.uid, member); });
+    const finalMembers = Array.from(uniqueMembersMap.values());
+    const memberIds = finalMembers.map(m => m.uid);
 
-        try {
-            const docRef = await addDoc(collection(db, "rooms"), { projectName, deadline, sdlcPhases, members: finalMembers, memberIds, status: "In Progress", progress: 0, createdAt: serverTimestamp(), ownerId: user.uid });
-            onRoomCreated(docRef.id);
-        } catch (err) {
-            console.error("Error creating room:", err);
-            setError("Failed to create room. Please check permissions and console for details.");
-        } finally {
-            setIsCreating(false);
-        }
-    };
+    try {
+        const docRef = await addDoc(collection(db, "rooms"), {
+            projectName,
+            deadline,
+            sdlcPhases,
+            members: finalMembers,
+            memberIds,
+            status: "In Progress",
+            progress: 0,
+            createdAt: serverTimestamp(),
+            ownerId: user.uid,
+            adminIds: [user.uid] // <-- This is the line you need to add
+        });
+        onRoomCreated(docRef.id);
+    } catch (err) {
+        console.error("Error creating room:", err);
+        setError("Failed to create room. Please check permissions and console for details.");
+    } finally {
+        setIsCreating(false);
+    }
+};
 
     return (
         <>
