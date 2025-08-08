@@ -1,5 +1,4 @@
 import React, { useState, useEffect, Fragment } from "react";
-// NOTE: SidebarLayout is no longer imported here
 import { Dialog, Transition } from "@headlessui/react";
 import { db } from "../firebase";
 import { useAuth } from "../routes/AuthContext";
@@ -206,7 +205,7 @@ const CreateRoomModal = ({ isOpen, onClose, onRoomCreated, user }) => {
             progress: 0,
             createdAt: serverTimestamp(),
             ownerId: user.uid,
-            adminIds: [user.uid] // <-- This is the line you need to add
+            adminIds: [user.uid] 
         });
         onRoomCreated(docRef.id);
     } catch (err) {

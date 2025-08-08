@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import React from "react";
-import NavItem from "../components/NavItem"; // adjust path if different
+import NavItem from "../components/NavItem"; 
 import { logout } from "../firebase";
 import { toast } from "react-toastify";
 import { LayoutDashboard, Home as HomeIcon, User, LogOut, Layers, Bell } from "lucide-react";

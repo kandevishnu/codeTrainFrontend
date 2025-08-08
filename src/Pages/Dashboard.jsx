@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-// NOTE: SidebarLayout is no longer imported here
 import { useAuth } from "../routes/AuthContext";
 import { motion } from "framer-motion";
 import { Briefcase, Activity, CheckCircle } from "lucide-react";
@@ -8,7 +7,6 @@ import { getProjectsForUser, acceptInvite } from "../firebase/firebaseUtils";
 import { useInvites } from "../context/InviteContext";
 import InviteNotificationModal from "../components/InviteNotificationModal";
 
-// --- All sub-components like GridBackground, StatCard, etc. remain the same ---
 
 const GridBackground = () => (
   <>
@@ -88,7 +86,6 @@ const Dashboard = () => {
   const [currentInvite, setCurrentInvite] = useState(null);
 
   useEffect(() => {
-    // ... (rest of your useEffect logic is unchanged)
     const fetchData = async () => {
       if (!user) { setIsLoading(false); return; }
       setIsLoading(true);
@@ -109,16 +106,14 @@ const Dashboard = () => {
     fetchData();
   }, [user]);
   
-  // ... (other useEffects and handlers are unchanged)
 
   const completionPercentage = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } } };
 
   if (isLoading) {
-    return null; // The main skeleton is handled by Suspense now.
+    return null; 
   }
 
-  // The component now returns the main content directly, without the SidebarLayout wrapper.
   return (
     <>
       <InviteNotificationModal isOpen={isInviteModalOpen} onClose={() => setInviteModalOpen(false)} onAccept={() => {}} invite={currentInvite} />

@@ -14,13 +14,11 @@ import {
 import { auth } from "./firebase";
 import { InviteProvider } from "./context/InviteContext";
 
-// Layouts and Skeletons
 import SidebarLayout from "./components/SidebarLayout";
 import DashboardSkeleton from "./Pages/DashboardSkeleton";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import GuestRoute from "./routes/GuestRoute";
 
-// Page Components - Lazy Loaded
 const Signup = lazy(() => import("./Pages/Signup"));
 const Login = lazy(() => import("./Pages/Login"));
 const Dashboard = lazy(() => import("./Pages/Dashboard"));
@@ -34,7 +32,6 @@ const RoomView = lazy(() => import("./Pages/RoomView"));
 const EmailVerifiedHandler = lazy(() => import("./Pages/EmailVerifiedHandler"));
 const Invites = lazy(() => import("./Pages/Invites"));
 
-// Generic skeleton for page content
 const GenericContentSkeleton = () => (
   <div className="h-full w-full bg-slate-900 p-8">
     <div className="w-1/2 h-12 bg-slate-700 rounded-md animate-pulse mb-4"></div>

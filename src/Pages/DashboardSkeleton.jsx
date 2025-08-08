@@ -1,11 +1,9 @@
 import React from 'react';
 
-// A simple, reusable pulsing placeholder
 const SkeletonPulse = ({ className }) => (
   <div className={`bg-slate-700 rounded-md animate-pulse ${className}`} />
 );
 
-// The skeleton for a single statistic card
 const StatCardSkeleton = () => (
   <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex items-center space-x-4">
     <div className="p-3 rounded-lg bg-slate-700 animate-pulse">
@@ -18,7 +16,6 @@ const StatCardSkeleton = () => (
   </div>
 );
 
-// The skeleton for the upcoming deadlines section
 const UpcomingDeadlinesSkeleton = () => (
   <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
     <SkeletonPulse className="h-6 w-1/2 mb-6" />
@@ -33,7 +30,6 @@ const UpcomingDeadlinesSkeleton = () => (
   </div>
 );
 
-// The skeleton for the completion gauge
 const CompletionGaugeSkeleton = () => (
   <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center">
     <SkeletonPulse className="h-6 w-3/4 mb-4" />
@@ -52,7 +48,6 @@ const CompletionGaugeSkeleton = () => (
   </div>
 );
 
-// The main skeleton layout for the entire dashboard page
 const DashboardSkeleton = () => (
   <div className="relative z-10 h-full w-full overflow-y-auto p-8 bg-slate-900">
     {/* Skeleton Header */}

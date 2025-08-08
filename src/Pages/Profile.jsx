@@ -9,7 +9,6 @@ import { Settings, Edit, Check, Shield, AlertTriangle, Github, Linkedin, Globe, 
 import { sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, updateProfile  } from "firebase/auth";
 import stringSimilarity from 'string-similarity';
 
-// NOTE: SidebarLayout is no longer imported
 
 const GridBackground = () => (
     <>
@@ -43,12 +42,12 @@ const SkillTag = ({ skill, onRemove, isEditing }) => {
     const normalizedSkill = skill.toLowerCase().replace('.', 'dot').replace(' ', '');
     return (
         <div className="flex items-center gap-2 bg-slate-700 rounded-full px-3 py-1 text-sm font-medium">
-            <img 
+            <img
                 src={`https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${normalizedSkill}/${normalizedSkill}-original.svg`}
                 alt={`${skill} logo`}
                 className="w-5 h-5"
                 onError={(e) => {
-                    e.target.onerror = null; 
+                    e.target.onerror = null;
                     e.target.outerHTML = `<div class="w-5 h-5 flex items-center justify-center bg-slate-600 text-xs rounded-full font-bold">${getInitials(skill)}</div>`
                 }}
             />
@@ -116,9 +115,9 @@ const Profile = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
-    const CLOUDINARY_CLOUD_NAME = "dw3phay5u"; 
+    const CLOUDINARY_CLOUD_NAME = "dw3phay5u";
     const CLOUDINARY_UPLOAD_PRESET = "ssbxzz7h";
-    
+
     const [isEditingName, setIsEditingName] = useState(false);
     const [isEditingBio, setIsEditingBio] = useState(false);
     const [isEditingSkills, setIsEditingSkills] = useState(false);
@@ -162,7 +161,7 @@ const Profile = () => {
                     getDocs(roomsCreatedQuery)
                 ]);
 
-                const tasksCompleted = 0; 
+                const tasksCompleted = 0;
 
                 setStats({
                     roomsJoined: joinedSnapshot.size,
@@ -175,29 +174,27 @@ const Profile = () => {
     }, [user]);
 
     const handleSave = async (field, value) => {
-    if (!auth.currentUser) return;
-    const user = auth.currentUser;
-    const userDocRef = doc(db, "users", user.uid);
+        if (!auth.currentUser) return;
+        const user = auth.currentUser;
+        const userDocRef = doc(db, "users", user.uid);
 
-    try {
-        await updateDoc(userDocRef, { [field]: value });
+        try {
+            await updateDoc(userDocRef, { [field]: value });
 
-        if (field === 'fullName') {
-            await updateProfile(user, {
-                displayName: value
-            });
+            if (field === 'fullName') {
+                await updateProfile(user, {
+                    displayName: value
+                });
+            }
+
+            toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated!`);
+
+        } catch (error) {
+            toast.error(`Failed to update ${field}.`);
+            console.error("Error updating profile:", error);
         }
+    };
 
-        toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated!`);
-
-        window.location.reload();
-
-    } catch (error) {
-        toast.error(`Failed to update ${field}.`);
-        console.error("Error updating profile:", error);
-    }
-};
-    
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file || !user) return;
@@ -259,9 +256,25 @@ const Profile = () => {
 
     return (
         <div className="relative h-full w-full bg-slate-900">
+             {/* Custom Scrollbar Styles */}
+            <style>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 8px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #4f46e5;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #6366f1;
+                }
+            `}</style>
             <GridBackground />
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-            <div className="relative z-10 h-full overflow-y-auto p-8">
+            <div className="relative z-10 h-full overflow-y-auto p-8 custom-scrollbar">
                 <motion.header initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="flex justify-between items-center">
                     <h1 className="text-5xl font-bold text-white tracking-tight">My Profile</h1>
                     <button onClick={() => setSettingsModalOpen(true)} className="p-3 rounded-full text-gray-300 hover:text-white hover:bg-slate-700/50 transition-colors"><Settings/></button>
