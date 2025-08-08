@@ -4,11 +4,11 @@ import { useAuth } from "../routes/AuthContext";
 import { auth, db } from "../firebase";
 import { doc, deleteDoc, updateDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { toast } from "react-toastify";
-import SidebarLayout from "../components/SidebarLayout";
 import { motion } from "framer-motion";
 import { Settings, Edit, Check, Shield, AlertTriangle, Github, Linkedin, Globe, Plus, BrainCircuit, BarChart2, X, User as UserIcon, Loader } from "lucide-react";
 import { sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, updateProfile  } from "firebase/auth";
 import stringSimilarity from 'string-similarity';
+
 
 const GridBackground = () => (
     <>
@@ -42,12 +42,12 @@ const SkillTag = ({ skill, onRemove, isEditing }) => {
     const normalizedSkill = skill.toLowerCase().replace('.', 'dot').replace(' ', '');
     return (
         <div className="flex items-center gap-2 bg-slate-700 rounded-full px-3 py-1 text-sm font-medium">
-            <img 
+            <img
                 src={`https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${normalizedSkill}/${normalizedSkill}-original.svg`}
                 alt={`${skill} logo`}
                 className="w-5 h-5"
                 onError={(e) => {
-                    e.target.onerror = null; 
+                    e.target.onerror = null;
                     e.target.outerHTML = `<div class="w-5 h-5 flex items-center justify-center bg-slate-600 text-xs rounded-full font-bold">${getInitials(skill)}</div>`
                 }}
             />
@@ -115,9 +115,9 @@ const Profile = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
-    const CLOUDINARY_CLOUD_NAME = "dw3phay5u"; 
+    const CLOUDINARY_CLOUD_NAME = "dw3phay5u";
     const CLOUDINARY_UPLOAD_PRESET = "ssbxzz7h";
-    
+
     const [isEditingName, setIsEditingName] = useState(false);
     const [isEditingBio, setIsEditingBio] = useState(false);
     const [isEditingSkills, setIsEditingSkills] = useState(false);
@@ -161,7 +161,7 @@ const Profile = () => {
                     getDocs(roomsCreatedQuery)
                 ]);
 
-                const tasksCompleted = 0; 
+                const tasksCompleted = 0;
 
                 setStats({
                     roomsJoined: joinedSnapshot.size,
@@ -174,29 +174,27 @@ const Profile = () => {
     }, [user]);
 
     const handleSave = async (field, value) => {
-    if (!auth.currentUser) return;
-    const user = auth.currentUser;
-    const userDocRef = doc(db, "users", user.uid);
+        if (!auth.currentUser) return;
+        const user = auth.currentUser;
+        const userDocRef = doc(db, "users", user.uid);
 
-    try {
-        await updateDoc(userDocRef, { [field]: value });
+        try {
+            await updateDoc(userDocRef, { [field]: value });
 
-        if (field === 'fullName') {
-            await updateProfile(user, {
-                displayName: value
-            });
+            if (field === 'fullName') {
+                await updateProfile(user, {
+                    displayName: value
+                });
+            }
+
+            toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated!`);
+
+        } catch (error) {
+            toast.error(`Failed to update ${field}.`);
+            console.error("Error updating profile:", error);
         }
+    };
 
-        toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated!`);
-
-        window.location.reload();
-
-    } catch (error) {
-        toast.error(`Failed to update ${field}.`);
-        console.error("Error updating profile:", error);
-    }
-};
-    
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file || !user) return;
@@ -257,49 +255,63 @@ const Profile = () => {
     const handleDeleteAccount = async (password) => { if (!user) throw new Error("No user found"); const credential = EmailAuthProvider.credential(user.email, password); await reauthenticateWithCredential(user, credential); await deleteDoc(doc(db, "users", user.uid)); await user.delete(); toast.success("Account deleted permanently."); navigate("/signup"); };
 
     return (
-        <SidebarLayout>
-            <div className="relative h-full w-full">
-                <GridBackground />
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-                <div className="relative z-10 h-full overflow-y-auto p-8">
-                    <motion.header initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="flex justify-between items-center">
-                        <h1 className="text-5xl font-bold text-white tracking-tight">My Profile</h1>
-                        <button onClick={() => setSettingsModalOpen(true)} className="p-3 rounded-full text-gray-300 hover:text-white hover:bg-slate-700/50 transition-colors"><Settings/></button>
-                    </motion.header>
+        <div className="relative h-full w-full bg-slate-900">
+             {/* Custom Scrollbar Styles */}
+            <style>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 8px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #4f46e5;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #6366f1;
+                }
+            `}</style>
+            <GridBackground />
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+            <div className="relative z-10 h-full overflow-y-auto p-8 custom-scrollbar">
+                <motion.header initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="flex justify-between items-center">
+                    <h1 className="text-5xl font-bold text-white tracking-tight">My Profile</h1>
+                    <button onClick={() => setSettingsModalOpen(true)} className="p-3 rounded-full text-gray-300 hover:text-white hover:bg-slate-700/50 transition-colors"><Settings/></button>
+                </motion.header>
 
-                    <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Left Column: Profile Card & Socials */}
-                        <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="lg:col-span-1 space-y-8">
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 text-center flex flex-col items-center">
-                                <div className="relative group">
-                                    {photoURL ? (
-                                        <img src={photoURL} alt="Profile" className="w-32 h-32 rounded-full border-4 border-indigo-500 object-cover" />
-                                    ) : (
-                                        <div className="w-32 h-32 rounded-full border-4 border-indigo-500 bg-slate-700 flex items-center justify-center">
-                                            <UserIcon size={64} className="text-slate-500" />
-                                        </div>
-                                    )}
-                                    <button onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {isUploading ? <Loader className="animate-spin" /> : <Edit size={24} />}
-                                    </button>
-                                </div>
-                                <div className="mt-6 w-full">{isEditingName ? (<div className="flex items-center gap-2"><input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={50} className="w-full bg-slate-700 text-2xl font-bold text-center rounded-lg p-1" /><button onClick={() => { handleSave('fullName', displayName); setIsEditingName(false); }} className="p-2 text-green-400 hover:bg-slate-700 rounded-full"><Check /></button></div>) : (<div className="flex items-center justify-center gap-2"><h2 className="text-3xl font-bold">{displayName}</h2><button onClick={() => setIsEditingName(true)} className="p-2 text-gray-400 hover:text-white hover:bg-slate-700 rounded-full"><Edit size={18}/></button></div>)}<p className="text-indigo-400 mt-1">{user?.email}</p></div>
-                                <div className="mt-6 text-left w-full border-t border-slate-700 pt-6"><div className="flex justify-between items-center"><h3 className="font-semibold text-gray-300">Bio</h3><button onClick={() => isEditingBio ? (handleSave('bio', bio), setIsEditingBio(false)) : setIsEditingBio(true)} className={`p-2 rounded-full hover:bg-slate-700 ${isEditingBio ? 'text-green-400' : 'text-gray-400 hover:text-white'}`}>{isEditingBio ? <Check /> : <Edit size={16} />}</button></div>{isEditingBio ? (<><textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={300} className="w-full h-24 mt-2 bg-slate-700 rounded-lg p-2 text-sm text-gray-300"></textarea><p className="text-xs text-right text-gray-400">{bio.length}/300</p></>) : (<p className="text-sm text-gray-400 mt-2">{bio}</p>)}</div>
+                <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left Column: Profile Card & Socials */}
+                    <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="lg:col-span-1 space-y-8">
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 text-center flex flex-col items-center">
+                            <div className="relative group">
+                                {photoURL ? (
+                                    <img src={photoURL} alt="Profile" className="w-32 h-32 rounded-full border-4 border-indigo-500 object-cover" />
+                                ) : (
+                                    <div className="w-32 h-32 rounded-full border-4 border-indigo-500 bg-slate-700 flex items-center justify-center">
+                                        <UserIcon size={64} className="text-slate-500" />
+                                    </div>
+                                )}
+                                <button onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {isUploading ? <Loader className="animate-spin" /> : <Edit size={24} />}
+                                </button>
                             </div>
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white">Social Links</h2><button onClick={() => isEditingSocials ? (handleSave('socialLinks', socialLinks), setIsEditingSocials(false)) : setIsEditingSocials(true)} className={`p-2 rounded-full hover:bg-slate-700 ${isEditingSocials ? 'text-green-400' : 'text-gray-400 hover:text-white'}`}>{isEditingSocials ? <Check /> : <Edit size={16} />}</button></div><div className="space-y-4">{isEditingSocials ? (Object.keys(socialLinks).map(key => (<div key={key} className="flex items-center gap-2"><span className="w-20 capitalize">{key}:</span><input type="text" value={socialLinks[key]} onChange={e => setSocialLinks({...socialLinks, [key]: e.target.value})} className="w-full bg-slate-700 rounded-lg p-1 text-sm" /></div>))) : (Object.keys(socialLinks).map(key => socialLinks[key] && (<a key={key} href={socialLinks[key]} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-gray-300 hover:text-indigo-400"><span className="w-5">{key === 'github' ? <Github/> : key === 'linkedin' ? <Linkedin/> : <Globe/>}</span>{socialLinks[key]}</a>)))}</div></div>
-                        </motion.div>
+                            <div className="mt-6 w-full">{isEditingName ? (<div className="flex items-center gap-2"><input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={50} className="w-full bg-slate-700 text-2xl font-bold text-center rounded-lg p-1" /><button onClick={() => { handleSave('fullName', displayName); setIsEditingName(false); }} className="p-2 text-green-400 hover:bg-slate-700 rounded-full"><Check /></button></div>) : (<div className="flex items-center justify-center gap-2"><h2 className="text-3xl font-bold">{displayName}</h2><button onClick={() => setIsEditingName(true)} className="p-2 text-gray-400 hover:text-white hover:bg-slate-700 rounded-full"><Edit size={18}/></button></div>)}<p className="text-indigo-400 mt-1">{user?.email}</p></div>
+                            <div className="mt-6 text-left w-full border-t border-slate-700 pt-6"><div className="flex justify-between items-center"><h3 className="font-semibold text-gray-300">Bio</h3><button onClick={() => isEditingBio ? (handleSave('bio', bio), setIsEditingBio(false)) : setIsEditingBio(true)} className={`p-2 rounded-full hover:bg-slate-700 ${isEditingBio ? 'text-green-400' : 'text-gray-400 hover:text-white'}`}>{isEditingBio ? <Check /> : <Edit size={16} />}</button></div>{isEditingBio ? (<><textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={300} className="w-full h-24 mt-2 bg-slate-700 rounded-lg p-2 text-sm text-gray-300"></textarea><p className="text-xs text-right text-gray-400">{bio.length}/300</p></>) : (<p className="text-sm text-gray-400 mt-2">{bio}</p>)}</div>
+                        </div>
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white">Social Links</h2><button onClick={() => isEditingSocials ? (handleSave('socialLinks', socialLinks), setIsEditingSocials(false)) : setIsEditingSocials(true)} className={`p-2 rounded-full hover:bg-slate-700 ${isEditingSocials ? 'text-green-400' : 'text-gray-400 hover:text-white'}`}>{isEditingSocials ? <Check /> : <Edit size={16} />}</button></div><div className="space-y-4">{isEditingSocials ? (Object.keys(socialLinks).map(key => (<div key={key} className="flex items-center gap-2"><span className="w-20 capitalize">{key}:</span><input type="text" value={socialLinks[key]} onChange={e => setSocialLinks({...socialLinks, [key]: e.target.value})} className="w-full bg-slate-700 rounded-lg p-1 text-sm" /></div>))) : (Object.keys(socialLinks).map(key => socialLinks[key] && (<a key={key} href={socialLinks[key]} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-gray-300 hover:text-indigo-400"><span className="w-5">{key === 'github' ? <Github/> : key === 'linkedin' ? <Linkedin/> : <Globe/>}</span>{socialLinks[key]}</a>)))}</div></div>
+                    </motion.div>
 
-                        {/* Right Column: Skills & Stats */}
-                        <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="lg:col-span-2 space-y-8">
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white flex items-center"><BrainCircuit className="mr-2 text-indigo-400"/>Tech Stack</h2><button onClick={() => { if(isEditingSkills) handleSave('skills', skills); setIsEditingSkills(!isEditingSkills); }} className={`p-2 rounded-full hover:bg-slate-700 ${isEditingSkills ? 'text-green-400' : 'text-gray-400 hover:text-white'}`}>{isEditingSkills ? <Check /> : <Edit size={16} />}</button></div><div className="flex flex-wrap gap-2">{skills.map(skill => (<SkillTag key={skill} skill={skill} onRemove={handleRemoveSkill} isEditing={isEditingSkills} />))}{isEditingSkills && (<div className="relative w-full mt-4"><div className="flex gap-2"><input type="text" value={newSkill} onChange={e => setNewSkill(e.target.value)} placeholder="Add new skill" className="flex-1 bg-slate-700 rounded-full px-3 py-1 text-sm" /><button onClick={() => addSkill(newSkill)} className="bg-indigo-600 rounded-full p-2"><Plus size={16}/></button></div>{newSkill && skillSuggestions.length > 0 && (<div className="absolute top-full left-0 w-full bg-slate-600 rounded-lg mt-1 p-2 space-y-1 z-10">{skillSuggestions.map(s => (<button key={s} onClick={() => addSkill(s)} className="w-full text-left p-1 hover:bg-slate-500 rounded">{s}</button>))}</div>)}</div>)}</div>{isEditingSkills && (<div className="mt-4 border-t border-slate-700 pt-4"><h4 className="text-sm font-semibold text-gray-400 mb-2">Suggestions</h4><div className="flex flex-wrap gap-2">{popularSkills.filter(s => !skills.includes(s)).map(skill => (<button key={skill} onClick={() => addSkill(skill)} className="flex items-center gap-2 bg-slate-600/50 hover:bg-slate-600 rounded-full px-3 py-1 text-sm"><Plus size={14}/>{skill}</button>))}</div></div>)}</div>
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8"><h2 className="text-xl font-bold text-white mb-4 flex items-center"><BarChart2 className="mr-2 text-indigo-400"/>User Statistics</h2><div className="grid grid-cols-3 gap-4 text-center"><div><p className="text-3xl font-bold">{stats.roomsJoined}</p><p className="text-sm text-gray-400">Rooms Joined</p></div><div><p className="text-3xl font-bold">{stats.roomsCreated}</p><p className="text-sm text-gray-400">Rooms Created</p></div><div><p className="text-3xl font-bold">{stats.tasksCompleted}</p><p className="text-sm text-gray-400">Tasks Completed</p></div></div></div>
-                        </motion.div>
-                    </div>
+                    {/* Right Column: Skills & Stats */}
+                    <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="lg:col-span-2 space-y-8">
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white flex items-center"><BrainCircuit className="mr-2 text-indigo-400"/>Tech Stack</h2><button onClick={() => { if(isEditingSkills) handleSave('skills', skills); setIsEditingSkills(!isEditingSkills); }} className={`p-2 rounded-full hover:bg-slate-700 ${isEditingSkills ? 'text-green-400' : 'text-gray-400 hover:text-white'}`}>{isEditingSkills ? <Check /> : <Edit size={16} />}</button></div><div className="flex flex-wrap gap-2">{skills.map(skill => (<SkillTag key={skill} skill={skill} onRemove={handleRemoveSkill} isEditing={isEditingSkills} />))}{isEditingSkills && (<div className="relative w-full mt-4"><div className="flex gap-2"><input type="text" value={newSkill} onChange={e => setNewSkill(e.target.value)} placeholder="Add new skill" className="flex-1 bg-slate-700 rounded-full px-3 py-1 text-sm" /><button onClick={() => addSkill(newSkill)} className="bg-indigo-600 rounded-full p-2"><Plus size={16}/></button></div>{newSkill && skillSuggestions.length > 0 && (<div className="absolute top-full left-0 w-full bg-slate-600 rounded-lg mt-1 p-2 space-y-1 z-10">{skillSuggestions.map(s => (<button key={s} onClick={() => addSkill(s)} className="w-full text-left p-1 hover:bg-slate-500 rounded">{s}</button>))}</div>)}</div>)}</div>{isEditingSkills && (<div className="mt-4 border-t border-slate-700 pt-4"><h4 className="text-sm font-semibold text-gray-400 mb-2">Suggestions</h4><div className="flex flex-wrap gap-2">{popularSkills.filter(s => !skills.includes(s)).map(skill => (<button key={skill} onClick={() => addSkill(skill)} className="flex items-center gap-2 bg-slate-600/50 hover:bg-slate-600 rounded-full px-3 py-1 text-sm"><Plus size={14}/>{skill}</button>))}</div></div>)}</div>
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8"><h2 className="text-xl font-bold text-white mb-4 flex items-center"><BarChart2 className="mr-2 text-indigo-400"/>User Statistics</h2><div className="grid grid-cols-3 gap-4 text-center"><div><p className="text-3xl font-bold">{stats.roomsJoined}</p><p className="text-sm text-gray-400">Rooms Joined</p></div><div><p className="text-3xl font-bold">{stats.roomsCreated}</p><p className="text-sm text-gray-400">Rooms Created</p></div><div><p className="text-3xl font-bold">{stats.tasksCompleted}</p><p className="text-sm text-gray-400">Tasks Completed</p></div></div></div>
+                    </motion.div>
                 </div>
-                <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setSettingsModalOpen(false)} onPasswordReset={handlePasswordReset} onDeleteClick={() => {setSettingsModalOpen(false); setDeleteModalOpen(true);}} />
-                <DeleteAccountModal isOpen={isDeleteModalOpen} onClose={() => setDeleteModalOpen(false)} onDeleteConfirm={handleDeleteAccount} />
             </div>
-        </SidebarLayout>
+            <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setSettingsModalOpen(false)} onPasswordReset={handlePasswordReset} onDeleteClick={() => {setSettingsModalOpen(false); setDeleteModalOpen(true);}} />
+            <DeleteAccountModal isOpen={isDeleteModalOpen} onClose={() => setDeleteModalOpen(false)} onDeleteConfirm={handleDeleteAccount} />
+        </div>
     );
 };
 

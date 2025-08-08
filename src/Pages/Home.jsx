@@ -1,5 +1,4 @@
 import React, { useState, useEffect, Fragment } from "react";
-import SidebarLayout from "../components/SidebarLayout";
 import { Dialog, Transition } from "@headlessui/react";
 import { db } from "../firebase";
 import { useAuth } from "../routes/AuthContext";
@@ -206,7 +205,7 @@ const CreateRoomModal = ({ isOpen, onClose, onRoomCreated, user }) => {
             progress: 0,
             createdAt: serverTimestamp(),
             ownerId: user.uid,
-            adminIds: [user.uid] // <-- This is the line you need to add
+            adminIds: [user.uid] 
         });
         onRoomCreated(docRef.id);
     } catch (err) {
@@ -287,61 +286,59 @@ const Home = () => {
     };
 
     return (
-        <SidebarLayout>
-            <div className="h-full w-full">
-                <GridBackground />
-                <div className="relative h-full overflow-y-auto p-8">
-                    <motion.header 
-                        initial={{ opacity: 0, y: -30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-                        className="mb-12"
-                    >
-                        <h1 className="text-5xl font-bold text-white tracking-tight">My Workspaces</h1>
-                        <p className="text-gray-400 mt-3 text-lg">Access and manage all your SDLC project rooms.</p>
-                    </motion.header>
-
-                    {loading ? (
-                        <p className="text-gray-300">Loading workspaces...</p>
-                    ) : rooms.length === 0 ? (
-                         <motion.div 
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="text-center py-24 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/50"
-                        >
-                            <Briefcase size={52} className="mx-auto text-slate-500" />
-                            <h2 className="mt-6 text-2xl font-semibold text-white">No Workspaces Found</h2>
-                            <p className="text-gray-400 mt-2">Create a new project workspace to get started.</p>
-                        </motion.div>
-                    ) : (
-                        <motion.div 
-                            variants={containerVariants}
-                            initial="hidden"
-                            animate="visible"
-                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-24"
-                        >
-                            {rooms.map((room) => (
-                                <ProjectCard key={room.id} room={room} onClick={() => navigate(`/room/${room.id}`)} />
-                            ))}
-                        </motion.div>
-                    )}
-                </div>
-
-                <motion.button
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                    whileHover={{ scale: 1.15, rotate: 15 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowModal(true)}
-                    className="fixed bottom-8 right-8 z-50 bg-gradient-to-br from-purple-600 to-indigo-600 text-white p-5 rounded-full shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40"
-                    aria-label="Create new project"
+        <div className="h-full w-full">
+            <GridBackground />
+            <div className="relative h-full overflow-y-auto p-8">
+                <motion.header 
+                    initial={{ opacity: 0, y: -30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+                    className="mb-12"
                 >
-                    <Plus size={32} />
-                </motion.button>
+                    <h1 className="text-5xl font-bold text-white tracking-tight">My Workspaces</h1>
+                    <p className="text-gray-400 mt-3 text-lg">Access and manage all your SDLC project rooms.</p>
+                </motion.header>
 
-                <CreateRoomModal isOpen={showModal} onClose={() => setShowModal(false)} onRoomCreated={handleRoomCreated} user={user} />
+                {loading ? (
+                    <p className="text-gray-300">Loading workspaces...</p>
+                ) : rooms.length === 0 ? (
+                     <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="text-center py-24 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/50"
+                    >
+                        <Briefcase size={52} className="mx-auto text-slate-500" />
+                        <h2 className="mt-6 text-2xl font-semibold text-white">No Workspaces Found</h2>
+                        <p className="text-gray-400 mt-2">Create a new project workspace to get started.</p>
+                    </motion.div>
+                ) : (
+                    <motion.div 
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-24"
+                    >
+                        {rooms.map((room) => (
+                            <ProjectCard key={room.id} room={room} onClick={() => navigate(`/room/${room.id}`)} />
+                        ))}
+                    </motion.div>
+                )}
             </div>
-        </SidebarLayout>
+
+            <motion.button
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                whileHover={{ scale: 1.15, rotate: 15 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowModal(true)}
+                className="fixed bottom-8 right-8 z-50 bg-gradient-to-br from-purple-600 to-indigo-600 text-white p-5 rounded-full shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40"
+                aria-label="Create new project"
+            >
+                <Plus size={32} />
+            </motion.button>
+
+            <CreateRoomModal isOpen={showModal} onClose={() => setShowModal(false)} onRoomCreated={handleRoomCreated} user={user} />
+        </div>
     );
 };
 

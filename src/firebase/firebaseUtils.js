@@ -36,12 +36,8 @@ export const getProjectsForUser = async () => {
   try {
     const user = auth.currentUser;
     if (!user) {
-      // It's better to return an empty array than throw an error here
-      // because the UI can gracefully handle an empty list.
       return [];
     }
-
-    // This query correctly gets all rooms the user is potentially a member of.
     const q = query(
       collection(db, "rooms"),
       where("memberIds", "array-contains", user.uid)
@@ -52,13 +48,11 @@ export const getProjectsForUser = async () => {
     const projects = [];
     snapshot.forEach((doc) => {
       const roomData = doc.data();
-      
-      // **THE FIX:** Now, we check the 'members' array inside the room data.
+
       const isAcceptedMember = roomData.members.some(
         (member) => member.uid === user.uid && member.inviteAccepted === true
       );
 
-      // Only add the project to the final list if the user has accepted the invite.
       if (isAcceptedMember) {
         projects.push({
           id: doc.id,

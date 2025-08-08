@@ -617,7 +617,7 @@ const DeleteProjectModal = ({ isOpen, onClose, roomName, roomId, navigate }) => 
         const roomRef = doc(db, "rooms", roomId);
         try {
             await deleteDoc(roomRef);
-            navigate('/home'); // Redirect after deletion
+            navigate('/home'); 
         } catch (error) {
             console.error("Failed to delete project:", error);
         }
@@ -660,7 +660,7 @@ const RoomView = () => {
     const [loading, setLoading] = useState(true);
     const [activeView, setActiveView] = useState('overview'); 
     const [isInviteModalOpen, setInviteModalOpen] = useState(false);
-    const [accessLost, setAccessLost] = useState(null); // 'removed' or 'deleted'
+    const [accessLost, setAccessLost] = useState(null);
 
     useEffect(() => {
         if (!user || !roomId) return;

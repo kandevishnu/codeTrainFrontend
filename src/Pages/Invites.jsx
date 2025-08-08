@@ -1,11 +1,10 @@
 import React from "react";
-import SidebarLayout from "../components/SidebarLayout";
 import { useAuth } from "../routes/AuthContext";
-import { useInvites } from "../context/InviteContext"; 
+import { useInvites } from "../context/InviteContext";
 import { acceptInvite } from "../firebase/firebaseUtils";
 import { toast } from "react-toastify";
 import { motion } from "framer-motion";
-import { Check, Mail, Briefcase, User } from "lucide-react";
+import { Check, Mail } from "lucide-react";
 
 const InviteCard = ({ invite, onAccept }) => (
     <motion.div
@@ -43,33 +42,31 @@ const Invites = () => {
     };
 
     return (
-        <SidebarLayout>
-             <div className="relative h-full w-full overflow-y-auto p-8">
-                 <motion.header
-                    initial={{ opacity: 0, y: -30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="mb-12"
-                >
-                    <h1 className="text-5xl font-bold text-white tracking-tight">Project Invitations</h1>
-                    <p className="text-gray-400 mt-3 text-lg">Accept invitations to join new workspaces.</p>
-                </motion.header>
+        <div className="relative h-full w-full overflow-y-auto p-8 bg-slate-900">
+             <motion.header
+                initial={{ opacity: 0, y: -30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mb-12"
+            >
+                <h1 className="text-5xl font-bold text-white tracking-tight">Project Invitations</h1>
+                <p className="text-gray-400 mt-3 text-lg">Accept invitations to join new workspaces.</p>
+            </motion.header>
 
-                <div className="space-y-6">
-                    {pendingInvites.length > 0 ? (
-                        pendingInvites.map(invite => (
-                           <InviteCard key={invite.roomId} invite={invite} onAccept={handleAccept} />
-                        ))
-                    ) : (
-                        <div className="text-center py-24 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/50">
-                             <Mail size={52} className="mx-auto text-slate-500" />
-                             <h2 className="mt-6 text-2xl font-semibold text-white">No Pending Invitations</h2>
-                             <p className="text-gray-400 mt-2">You're all caught up!</p>
-                        </div>
-                    )}
-                </div>
+            <div className="space-y-6">
+                {pendingInvites.length > 0 ? (
+                    pendingInvites.map(invite => (
+                       <InviteCard key={invite.roomId} invite={invite} onAccept={handleAccept} />
+                    ))
+                ) : (
+                    <div className="text-center py-24 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/50">
+                         <Mail size={52} className="mx-auto text-slate-500" />
+                         <h2 className="mt-6 text-2xl font-semibold text-white">No Pending Invitations</h2>
+                         <p className="text-gray-400 mt-2">You're all caught up!</p>
+                    </div>
+                )}
             </div>
-        </SidebarLayout>
+        </div>
     );
 };
 
