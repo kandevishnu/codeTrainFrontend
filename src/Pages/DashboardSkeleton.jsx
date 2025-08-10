@@ -50,20 +50,17 @@ const CompletionGaugeSkeleton = () => (
 
 const DashboardSkeleton = () => (
   <div className="relative z-10 h-full w-full overflow-y-auto p-8 bg-slate-900">
-    {/* Skeleton Header */}
     <div className="mb-12">
       <SkeletonPulse className="h-12 w-1/2 mb-4" />
       <SkeletonPulse className="h-6 w-3/4" />
     </div>
 
-    {/* Skeleton Stat Cards */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
       <StatCardSkeleton />
       <StatCardSkeleton />
       <StatCardSkeleton />
     </div>
 
-    {/* Skeleton Lower Section */}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2">
         <UpcomingDeadlinesSkeleton />

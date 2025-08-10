@@ -23,7 +23,6 @@ const SidebarLayout = () => {
     return (
         <div className="flex h-screen w-full bg-slate-900 text-white">
             <aside className="flex w-64 flex-col space-y-8 bg-black/20 p-6 backdrop-blur-xl border-r border-white/10">
-                {/* Logo */}
                 <div className="flex items-center space-x-2">
                     <div className="p-2 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg">
                         <Layers size={24} />
@@ -31,7 +30,6 @@ const SidebarLayout = () => {
                     <h2 className="text-xl font-bold tracking-tighter">CodeTrain</h2>
                 </div>
 
-                {/* Navigation */}
                 <nav className="flex flex-1 flex-col space-y-2">
                     <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />}>Dashboard</NavItem>
                     <NavItem to="/home" icon={<HomeIcon size={20} />}>Home</NavItem>
@@ -50,7 +48,6 @@ const SidebarLayout = () => {
                 </nav>
             </aside>
 
-            {/* Main content swaps here */}
             <main className="flex-1">
                 <Outlet />
             </main>

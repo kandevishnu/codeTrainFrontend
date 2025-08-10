@@ -1,4 +1,3 @@
-// src/components/IncomingCallModal.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Phone, X, User } from 'lucide-react';
@@ -20,7 +19,6 @@ const IncomingCallModal = ({ callData, onAccept, onDecline }) => {
                     </div>
                     <h2 className="text-xl font-bold text-white">Incoming Call</h2>
                     <p className="text-sm text-slate-400 mt-1">
-                        {/* In a real app, you'd look up the caller's name */}
                         Call from the project room.
                     </p>
                 </div>
