@@ -8,26 +8,25 @@ const LandingPage = () => {
 
   useEffect(() => {
     const video = videoRef.current;
+    if (!video) return;
 
-    const handleLoaded = () => {
-      setTimeout(() => {
+    const handleTimeUpdate = () => {
+      if (video.currentTime > 4.6) {
         setShowTitles(true);
-      }, 4600);
-    };
 
-    if (video) {
-      video.addEventListener("loadedmetadata", handleLoaded);
-    }
-
-    return () => {
-      if (video) {
-        video.removeEventListener("loadedmetadata", handleLoaded);
+        video.removeEventListener("timeupdate", handleTimeUpdate);
       }
     };
-  }, []);
+
+    video.addEventListener("timeupdate", handleTimeUpdate);
+
+    return () => {
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, []); 
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-slate-900 relative">
+    <div className="w-full h-dvh overflow-hidden bg-slate-900 relative">
       <video
         ref={videoRef}
         src="/train.mp4"
@@ -36,6 +35,7 @@ const LandingPage = () => {
         playsInline
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       />
+
 
       {showTitles && (
         <div className="absolute inset-0 bg-black/40 z-10 transition-opacity duration-1000" />

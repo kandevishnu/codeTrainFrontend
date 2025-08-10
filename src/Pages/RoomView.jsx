@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { doc, onSnapshot, updateDoc, serverTimestamp, arrayUnion, collection, query, where, getDocs, arrayRemove, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -8,8 +8,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Clock, Users, User, Box, LayoutDashboard, CheckSquare,
     BarChart3, Settings, Plus, Edit, Paperclip, Trash2,
-    Search, Phone, Video, ScreenShare, Bell, X, User as UserIcon, Check, AlertTriangle, Shield, ShieldOff
+    Search, Phone, Video, ScreenShare, X, User as UserIcon, Check, AlertTriangle, Shield, ShieldOff,
+    Mic, MicOff, PhoneOff, VideoOff, LogIn, LogOut, Info, MessageSquare, Pin, PinOff
 } from "lucide-react";
+
+import { webrtcService } from '../services/webrtcService';
+import IncomingCallModal from '../components/IncomingCallModal';
 
 
 const StatCard = ({ icon, label, value }) => (
@@ -22,33 +26,13 @@ const StatCard = ({ icon, label, value }) => (
     </div>
 );
 
-const IconButton = ({ icon, tooltip, onClick, className }) => (
-    <button onClick={onClick} className={`p-2 rounded-md hover:bg-gray-700 text-gray-400 hover:text-white transition-colors relative group ${className}`}>
+const IconButton = ({ icon, tooltip, onClick, className, isActive }) => (
+    <button onClick={onClick} className={`p-3 rounded-full transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-300'} relative group ${className}`}>
         {icon}
         <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             {tooltip}
         </span>
     </button>
-);
-
-
-const Sidebar = ({ room, activeView, setActiveView, isAdmin }) => (
-    <aside className="w-64 bg-gray-900/70 backdrop-blur-xl border-r border-white/10 flex flex-col p-4">
-        <div className="mb-8">
-            <h1 className="text-xl font-bold text-white tracking-tight">{room.projectName}</h1>
-            <p className="text-xs text-gray-400">Project Workspace</p>
-        </div>
-        <nav className="flex-grow">
-            <ul>
-                <SidebarItem icon={<LayoutDashboard size={20} />} label="Overview" activeView={activeView} setActiveView={setActiveView} viewName="overview" />
-                <SidebarItem icon={<CheckSquare size={20} />} label="Tasks & Kanban" activeView={activeView} setActiveView={setActiveView} viewName="tasks" />
-                <SidebarItem icon={<BarChart3 size={20} />} label="Analytics & Gantt" activeView={activeView} setActiveView={setActiveView} viewName="analytics" />
-            </ul>
-        </nav>
-        <div>
-             {isAdmin && <SidebarItem icon={<Settings size={20} />} label="Project Settings" activeView={activeView} setActiveView={setActiveView} viewName="settings" />}
-        </div>
-    </aside>
 );
 
 const SidebarItem = ({ icon, label, activeView, setActiveView, viewName }) => {
@@ -64,7 +48,32 @@ const SidebarItem = ({ icon, label, activeView, setActiveView, viewName }) => {
     );
 };
 
-const Header = ({ room }) => (
+const TabButton = ({ label, isActive, onClick }) => (
+    <button onClick={onClick} className={`flex-1 p-3 text-sm font-medium transition-colors ${isActive ? "text-white bg-gray-800" : "text-gray-400 hover:bg-gray-800/50"}`}>
+        {label}
+    </button>
+);
+
+const Sidebar = ({ room, activeView, setActiveView, isAdmin }) => (
+    <aside className="w-64 bg-gray-900/70 backdrop-blur-xl border-r border-white/10 flex flex-col p-4">
+        <div className="mb-8">
+            <h1 className="text-xl font-bold text-white tracking-tight">{room.projectName}</h1>
+            <p className="text-xs text-gray-400">Project Workspace</p>
+        </div>
+        <nav className="flex-grow">
+            <ul>
+                <SidebarItem icon={<LayoutDashboard size={20} />} label="Overview" activeView={activeView} setActiveView={setActiveView} viewName="overview" />
+                <SidebarItem icon={<CheckSquare size={20} />} label="Tasks & Kanban" activeView={activeView} setActiveView={setActiveView} viewName="tasks" />
+                <SidebarItem icon={<BarChart3 size={20} />} label="Analytics & Gantt" activeView={activeView} setActiveView={setActiveView} viewName="analytics" />
+            </ul>
+        </nav>
+        <div>
+            {isAdmin && <SidebarItem icon={<Settings size={20} />} label="Project Settings" activeView={activeView} setActiveView={setActiveView} viewName="settings" />}
+        </div>
+    </aside>
+);
+
+const Header = ({ room, onStartCall, onShareScreen, isCallActive, onJoinCall, ongoingCall }) => (
     <header className="flex items-center justify-between p-4 border-b mt-1.5 border-white/10">
         <div>
             <div className="flex items-center space-x-2">
@@ -77,15 +86,28 @@ const Header = ({ room }) => (
             </div>
         </div>
         <div className="flex items-center space-x-2">
-             <div className="flex items-center p-1 bg-gray-800 rounded-lg border border-white/10">
-                 <IconButton icon={<Search size={18} />} tooltip="Search" />
-                 <IconButton icon={<Paperclip size={18} />} tooltip="Attachments" />
-             </div>
-              <div className="flex items-center p-1 bg-gray-800 rounded-lg border border-white/10">
-                 <IconButton icon={<Phone size={18} />} tooltip="Start Voice Call" />
-                 <IconButton icon={<Video size={18} />} tooltip="Start Video Call" />
-                 <IconButton icon={<ScreenShare size={18} />} tooltip="Share Screen" />
-             </div>
+            <div className="flex items-center p-1 bg-gray-800 rounded-lg border border-white/10">
+                <IconButton icon={<Search size={18} />} tooltip="Search" />
+                <IconButton icon={<Paperclip size={18} />} tooltip="Attachments" />
+            </div>
+            <div className="flex items-center p-1 bg-gray-800 rounded-lg border border-white/10">
+                {ongoingCall && !isCallActive ? (
+                    <button onClick={() => onJoinCall(ongoingCall.type)} className="flex items-center space-x-2 px-3 py-1.5 text-sm font-semibold text-green-300 bg-green-500/20 rounded-md hover:bg-green-500/30 transition-colors">
+                        <LogIn size={16} />
+                        <span>Join Call</span>
+                    </button>
+                ) : (
+                    <>
+                        <IconButton icon={<Phone size={18} />} tooltip="Start Voice Call"
+                            onClick={() => onStartCall('voice')}
+                            className={isCallActive || ongoingCall ? 'opacity-50 cursor-not-allowed' : ''} />
+                        <IconButton icon={<Video size={18} />} tooltip="Start Video Call"
+                            onClick={() => onStartCall('video')}
+                            className={isCallActive || ongoingCall ? 'opacity-50 cursor-not-allowed' : ''} />
+                    </>
+                )}
+                 <IconButton icon={<ScreenShare size={18} />} tooltip="Share Screen" onClick={onShareScreen} className={!isCallActive ? 'opacity-50 cursor-not-allowed' : ''} />
+            </div>
         </div>
     </header>
 );
@@ -107,12 +129,6 @@ const CollaborationPanel = ({ members, onInvite, user, room, roomId }) => {
         </aside>
     );
 };
-
-const TabButton = ({ label, isActive, onClick }) => (
-    <button onClick={onClick} className={`flex-1 p-3 text-sm font-medium transition-colors ${isActive ? "text-white bg-gray-800" : "text-gray-400 hover:bg-gray-800/50"}`}>
-        {label}
-    </button>
-);
 
 const ConfirmRemoveModal = ({ isOpen, onClose, onConfirm, memberName }) => {
     if (!isOpen) return null;
@@ -281,18 +297,17 @@ const MembersList = ({ members, onInvite, currentUser, room, roomId }) => {
                 })}
             </div>
             {pendingMembers.length > 0 && (
-                 <div className="mt-6">
-                     <h3 className="font-semibold text-white mb-2 text-sm">Pending Invites ({pendingMembers.length})</h3>
-                     {pendingMembers.map(member => (
-                         <p key={member.email} className="text-xs text-gray-500 truncate">{member.email} - <span className="text-yellow-400">Pending</span></p>
-                     ))}
-                 </div>
+                <div className="mt-6">
+                    <h3 className="font-semibold text-white mb-2 text-sm">Pending Invites ({pendingMembers.length})</h3>
+                    {pendingMembers.map(member => (
+                        <p key={member.email} className="text-xs text-gray-500 truncate">{member.email} - <span className="text-yellow-400">Pending</span></p>
+                    ))}
+                </div>
             )}
         </div>
     </>
     )
 };
-
 
 const ActivityFeed = () => (
     <div>
@@ -302,15 +317,15 @@ const ActivityFeed = () => (
 );
 
 const ChatPanel = () => (
-     <div className="flex flex-col h-full">
-         <div className="flex-grow">
-          <p className="text-sm text-gray-400">Global chat future update...</p>
-         </div>
-         <div className="mt-4 flex items-center space-x-2">
-               <input type="text" placeholder="Type a message..." className="flex-1 bg-gray-700 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
-               <button className="p-2 bg-indigo-600 rounded-lg"><Paperclip size={18}/></button>
-         </div>
-     </div>
+    <div className="flex flex-col h-full">
+        <div className="flex-grow">
+        <p className="text-sm text-gray-400">Global chat future update...</p>
+        </div>
+        <div className="mt-4 flex items-center space-x-2">
+                <input type="text" placeholder="Type a message..." className="flex-1 bg-gray-700 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                <button className="p-2 bg-indigo-600 rounded-lg"><Paperclip size={18}/></button>
+        </div>
+    </div>
 );
 
 const Countdown = ({ deadline }) => {
@@ -527,7 +542,6 @@ const ProjectSettings = ({ room, roomId, members, isOwner }) => {
                 navigate={navigate}
             />
             <div className="space-y-8">
-                {/* General Settings */}
                 <SettingsSection title="General Settings">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <InputField label="Project Name" value={projectName} onChange={(e) => setProjectName(e.target.value)} onBlur={() => handleSettingsUpdate('projectName', projectName)} />
@@ -540,7 +554,6 @@ const ProjectSettings = ({ room, roomId, members, isOwner }) => {
                     </div>
                 </SettingsSection>
 
-                {/* SDLC Phases */}
                 <SettingsSection title="Project Phases">
                     <div className="flex flex-wrap gap-2">
                         {allPhases.map(phase => (
@@ -549,23 +562,21 @@ const ProjectSettings = ({ room, roomId, members, isOwner }) => {
                     </div>
                 </SettingsSection>
 
-                {/* Access Control */}
                 <SettingsSection title="Access Control">
-                     {members.filter(m => m.uid !== room.ownerId && m.inviteAccepted).map(member => (
-                        <div key={member.uid} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-                            <div>
-                                <p className="font-medium text-white">{member.name}</p>
-                                <p className="text-xs text-slate-400">{member.email}</p>
+                        {members.filter(m => m.uid !== room.ownerId && m.inviteAccepted).map(member => (
+                            <div key={member.uid} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                                <div>
+                                    <p className="font-medium text-white">{member.name}</p>
+                                    <p className="text-xs text-slate-400">{member.email}</p>
+                                </div>
+                                <button onClick={() => handleAdminToggle(member)} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${room.adminIds.includes(member.uid) ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-green-500/20 text-green-300 hover:bg-green-500/30'}`}>
+                                    {room.adminIds.includes(member.uid) ? <ShieldOff size={14}/> : <Shield size={14} />}
+                                    {room.adminIds.includes(member.uid) ? 'Revoke Admin' : 'Make Admin'}
+                                </button>
                             </div>
-                            <button onClick={() => handleAdminToggle(member)} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${room.adminIds.includes(member.uid) ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-green-500/20 text-green-300 hover:bg-green-500/30'}`}>
-                                {room.adminIds.includes(member.uid) ? <ShieldOff size={14}/> : <Shield size={14} />}
-                                {room.adminIds.includes(member.uid) ? 'Revoke Admin' : 'Make Admin'}
-                            </button>
-                        </div>
-                     ))}
+                        ))}
                 </SettingsSection>
 
-                {/* Danger Zone: Only visible to the project owner */}
                 {isOwner && (
                     <SettingsSection title="Danger Zone" borderClass="border-red-500/30">
                         <div className="bg-red-500/10 p-4 rounded-lg flex items-center justify-between">
@@ -599,7 +610,7 @@ const InputField = ({ label, ...props }) => (
 );
 
 const SelectField = ({ label, children, ...props }) => (
-     <div>
+    <div>
         <label className="text-sm font-medium text-slate-300 block mb-1">{label}</label>
         <select {...props} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
             {children}
@@ -651,22 +662,420 @@ const FullScreenMessage = ({ title, message }) => (
     </div>
 );
 
+const VideoStream = ({ stream, muted = false, name = "", photoURL, isVideoOff, isAudioMuted, onPin, isPinned, isScreenShare = false }) => {
+    const videoRef = useRef(null);
+    useEffect(() => {
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [stream]);
+
+    return (
+        <div className="relative w-full h-full bg-slate-800 rounded-xl overflow-hidden flex items-center justify-center group aspect-video">
+            <video ref={videoRef} autoPlay playsInline muted={muted} className={`w-full h-full object-cover transition-opacity duration-300 ${!stream || isVideoOff ? 'opacity-0' : 'opacity-100'}`} />
+            
+            {(!stream || isVideoOff) && !isScreenShare && (
+                 <AnimatePresence>
+                     <motion.div 
+                         initial={{ opacity: 0, scale: 0.8 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         exit={{ opacity: 0, scale: 0.8 }}
+                         className="absolute inset-0 flex items-center justify-center"
+                     >
+                         {photoURL ? (
+                             <img src={photoURL} alt={name} className="w-24 h-24 rounded-full object-cover" />
+                         ) : (
+                             <div className="w-24 h-24 rounded-full bg-slate-700 flex items-center justify-center">
+                                 <UserIcon size={48} className="text-slate-400" />
+                             </div>
+                         )}
+                     </motion.div>
+                 </AnimatePresence>
+            )}
+
+            <div className="absolute bottom-2 left-3 flex items-center gap-2 bg-black/30 backdrop-blur-sm p-1.5 rounded-md">
+                <p className="text-white font-medium text-sm drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]">
+                    {name}
+                </p>
+                {isAudioMuted && !isScreenShare && (
+                    <MicOff size={14} className="text-white" />
+                )}
+            </div>
+
+            {onPin && (
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={onPin} className="p-1.5 bg-black/40 rounded-full text-white hover:bg-black/70">
+                        {isPinned ? <PinOff size={14} /> : <Pin size={14} />}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const CallWindow = ({ 
+    localStream, remoteStreams, onHangUp, isMuted, isVideoOff, onToggleMute, onToggleVideo, 
+    members, currentUser, onShareScreen, isScreenSharing, activePanel, setActivePanel, 
+    pinnedUid, setPinnedUid, screenShareStream, onSendMessage, chatMessages, remoteScreenStreams 
+}) => {
+    
+    const allParticipants = [
+        { uid: currentUser.uid, stream: localStream, isLocal: true, type: 'video' },
+        ...Object.entries(remoteStreams).map(([uid, stream]) => ({ uid, stream, isLocal: false, type: 'video' })),
+        ...(isScreenSharing ? [{ uid: `${currentUser.uid}_screen`, stream: screenShareStream, isLocal: true, type: 'screen' }] : []),
+        ...Object.entries(remoteScreenStreams).map(([uid, stream]) => ({ uid: `${uid}_screen`, stream, isLocal: false, type: 'screen' }))
+    ];
+
+    const getParticipantOriginalUid = (p) => p.uid.replace('_screen', '');
+
+    const mainScreenShare = allParticipants.find(p => p.type === 'screen');
+    const pinnedStream = pinnedUid ? allParticipants.find(p => p.uid === pinnedUid) : null;
+    const mainViewParticipant = pinnedStream || mainScreenShare;
+
+    const sidebarParticipants = mainViewParticipant 
+        ? allParticipants.filter(p => p.uid !== mainViewParticipant.uid)
+        : [];
+    
+    const gridParticipants = !mainViewParticipant ? allParticipants : [];
+
+    const getParticipantInfo = (p) => {
+        if (!p) return {};
+        const originalUid = getParticipantOriginalUid(p);
+        const member = members.find(m => m.uid === originalUid);
+        
+        if (p.type === 'screen') {
+            return {
+                name: `${member?.name || 'Guest'}'s Screen`,
+                isScreenShare: true,
+                onPin: () => setPinnedUid(null) 
+            };
+        }
+
+        const isVideoTrackOff = !p.stream?.getVideoTracks().some(t => t.enabled);
+        const isAudioTrackOff = !p.stream?.getAudioTracks().some(t => t.enabled);
+
+        return {
+            name: p.isLocal ? `${member?.name || 'You'} (You)` : member?.name || 'Guest',
+            photoURL: member?.photoURL,
+            isVideoOff: p.isLocal ? isVideoOff : isVideoTrackOff,
+            isAudioMuted: p.isLocal ? isMuted : isAudioTrackOff,
+            onPin: () => setPinnedUid(p.uid === pinnedUid ? null : p.uid),
+            isPinned: p.uid === pinnedUid
+        };
+    };
+
+    const getLayoutClasses = (count) => {
+        if (count === 1) return "grid-cols-1 grid-rows-1 max-w-4xl mx-auto";
+        if (count === 2) return "grid-cols-2 grid-rows-1";
+        if (count <= 4) return "grid-cols-2 grid-rows-2";
+        if (count <= 9) return "grid-cols-3 grid-rows-3";
+        return "grid-cols-4 grid-rows-3";
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-950 z-40 flex flex-col">
+            <div className="flex-1 flex min-h-0 relative">
+                <div className={`flex-1 flex p-4`}>
+                    <div className="flex-1 min-w-0">
+                        {mainViewParticipant ? (
+                            <VideoStream 
+                                {...getParticipantInfo(mainViewParticipant)}
+                                stream={mainViewParticipant.stream} 
+                                muted={mainViewParticipant.isLocal} 
+                            />
+                        ) : (
+                            <div className={`w-full h-full grid ${getLayoutClasses(gridParticipants.length)} gap-4`}>
+                                {gridParticipants.map(p => (
+                                    <div key={p.uid} className="min-h-0">
+                                        <VideoStream 
+                                            {...getParticipantInfo(p)}
+                                            stream={p.stream} 
+                                            muted={p.isLocal} 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    
+                    {mainViewParticipant && sidebarParticipants.length > 0 && (
+                        <div className="w-64 flex-shrink-0 flex flex-col space-y-4 overflow-y-auto pl-4">
+                            {sidebarParticipants.map(p => (
+                                <div key={p.uid} className="w-full aspect-video flex-shrink-0">
+                                    <VideoStream 
+                                        {...getParticipantInfo(p)}
+                                        stream={p.stream} 
+                                        muted={p.isLocal} 
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <AnimatePresence>
+                    {activePanel && (
+                        <motion.div 
+                            initial={{ x: "100%" }} 
+                            animate={{ x: 0 }} 
+                            exit={{ x: "100%" }} 
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }} 
+                            className="w-80 bg-slate-900/80 backdrop-blur-md border-l border-slate-700 flex flex-col"
+                        >
+                            {activePanel === 'members' && <CallMembersPanel members={members} currentUser={currentUser} allParticipants={allParticipants} />}
+                            {activePanel === 'chat' && <CallChatPanel onSendMessage={onSendMessage} messages={chatMessages} currentUser={currentUser} />}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+
+            <div className="flex justify-center items-center flex-shrink-0 p-4">
+                <div className="flex items-center gap-4 bg-slate-800/80 backdrop-blur-sm p-3 rounded-full border border-slate-700">
+                    <IconButton icon={isMuted ? <MicOff /> : <Mic />} tooltip={isMuted ? "Unmute" : "Mute"} onClick={onToggleMute} className={isMuted ? 'bg-red-600 text-white' : ''} />
+                    <IconButton icon={isVideoOff ? <VideoOff /> : <Video />} tooltip={isVideoOff ? "Start Video" : "Stop Video"} onClick={onToggleVideo} className={isVideoOff ? 'bg-red-600 text-white' : ''} />
+                    <IconButton icon={<ScreenShare />} tooltip={isScreenSharing ? "Stop Sharing" : "Share Screen"} onClick={onShareScreen} isActive={isScreenSharing} />
+                    <IconButton icon={<Users />} tooltip="Participants" onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')} isActive={activePanel === 'members'} />
+                    <IconButton icon={<MessageSquare />} tooltip="Chat" onClick={() => setActivePanel(activePanel === 'chat' ? null : 'chat')} isActive={activePanel === 'chat'} />
+                    <button onClick={onHangUp} className="p-3 rounded-full bg-red-600 hover:bg-red-500 text-white">
+                        <PhoneOff />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CallMembersPanel = ({ members, currentUser, allParticipants }) => {
+    const attendeeUids = new Set(allParticipants.map(p => p.uid.replace('_screen', '')));
+    const attendees = members.filter(m => attendeeUids.has(m.uid));
+    
+    return (
+        <div className="flex flex-col h-full">
+            <h3 className="p-4 text-lg font-bold border-b border-slate-700">Participants ({attendees.length})</h3>
+            <div className="flex-grow overflow-y-auto p-4 space-y-3">
+                {attendees.map(member => (
+                    <div key={member.uid} className="flex items-center space-x-3">
+                        {member.photoURL ? <img src={member.photoURL} className="w-8 h-8 rounded-full" alt={member.name}/> : <UserIcon className="w-8 h-8 p-1.5 bg-slate-700 rounded-full" />}
+                        <span className="text-sm font-medium">{member.name}{member.uid === currentUser.uid && " (You)"}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const CallChatPanel = ({ onSendMessage, messages, currentUser }) => {
+    const [newMessage, setNewMessage] = useState("");
+    const messagesEndRef = useRef(null);
+    
+    const sortedMessages = [...messages].sort((a, b) => a.timestamp - b.timestamp);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [sortedMessages]);
+
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (newMessage.trim() === "") return;
+        onSendMessage(newMessage, currentUser?.name || "Guest");
+        setNewMessage("");
+    };
+
+    return (
+        <div className="flex flex-col h-full">
+            <h3 className="p-4 text-lg font-bold border-b border-slate-700">In-call Chat</h3>
+            <p className="text-xs text-slate-400 px-4 py-2 bg-slate-800">Messages are deleted when the call ends.</p>
+            <div className="flex-grow overflow-y-auto p-4 space-y-4">
+                {sortedMessages.map((msg) => (
+                    <div key={msg.id}>
+                        <div className="flex justify-between items-center text-xs text-slate-400">
+                            <strong>{msg.senderUid === currentUser?.uid ? "You" : msg.senderName}</strong>
+                            <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p className={`text-sm p-2 rounded-md mt-1 ${msg.senderUid === currentUser?.uid ? 'bg-indigo-600' : 'bg-slate-700'}`}>{msg.text}</p>
+                    </div>
+                ))}
+                <div ref={messagesEndRef} />
+            </div>
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-700">
+                <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type a message..."
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+            </form>
+        </div>
+    );
+};
+
+const ToastNotification = ({ message, icon }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        className="fixed bottom-20 right-5 bg-slate-800 text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 border border-slate-700"
+    >
+        {icon}
+        <span>{message}</span>
+    </motion.div>
+);
 
 const RoomView = () => {
     const { roomId } = useParams();
+    const navigate = useNavigate();
     const { user } = useAuth();
+
     const [room, setRoom] = useState(null);
     const [membersWithStatus, setMembersWithStatus] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeView, setActiveView] = useState('overview'); 
+    const [activeView, setActiveView] = useState('overview');
     const [isInviteModalOpen, setInviteModalOpen] = useState(false);
     const [accessLost, setAccessLost] = useState(null);
+    const [notifications, setNotifications] = useState([]);
+    const [callActive, setCallActive] = useState(false);
+    const [incomingCall, setIncomingCall] = useState(null);
+    const [ongoingCall, setOngoingCall] = useState(null);
+    const [localStream, setLocalStream] = useState(null);
+    const [remoteStreams, setRemoteStreams] = useState({});
+    const [remoteScreenStreams, setRemoteScreenStreams] = useState({});
+    const [isMuted, setIsMuted] = useState(true);
+    const [isVideoOff, setIsVideoOff] = useState(true);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [screenShareStream, setScreenShareStream] = useState(null);
+    const [activeCallPanel, setActiveCallPanel] = useState(null);
+    const [pinnedUid, setPinnedUid] = useState(null);
+    const [chatMessages, setChatMessages] = useState([]);
+    const attendeesRef = useRef([]);
+
+    const addNotification = (message, type) => {
+        const id = Date.now();
+        const icon = type === 'join' ? <LogIn size={16} className="text-green-400" /> : <LogOut size={16} className="text-red-400" />;
+        setNotifications(prev => [...prev, { id, message, icon }]);
+        setTimeout(() => {
+            setNotifications(prev => prev.filter(n => n.id !== id));
+        }, 4000);
+    };
+
+    const handleStartCall = async (type) => {
+        if (!user || !room?.memberIds || ongoingCall) return;
+        setIsMuted(false);
+        setIsVideoOff(type === 'voice');
+        await webrtcService.startCall(type, user.uid, room.memberIds);
+        setCallActive(true);
+    };
+
+    const handleJoinCall = async (type) => {
+        if (!ongoingCall || !user) return;
+        setIsMuted(false);
+        setIsVideoOff(type === 'voice');
+        await webrtcService.answerCall(ongoingCall.id, user.uid);
+        setCallActive(true);
+    };
+
+    const handleAcceptCall = async () => {
+        if (!incomingCall || !user) return;
+        setIsMuted(false);
+        setIsVideoOff(incomingCall.type === 'voice');
+        await webrtcService.answerCall(incomingCall.id, user.uid);
+        setCallActive(true);
+        setIncomingCall(null);
+    };
+
+    const handleDeclineCall = () => {
+        setIncomingCall(null);
+    };
+
+    const handleHangUp = async () => {
+        await webrtcService.hangUp();
+    };
+
+    const handleToggleMute = () => {
+        const newMutedState = !isMuted;
+        webrtcService.localStream?.getAudioTracks().forEach(track => {
+            track.enabled = !newMutedState;
+        });
+        setIsMuted(newMutedState);
+    };
+
+    const handleToggleVideo = () => {
+        const newVideoState = !isVideoOff;
+        webrtcService.localStream?.getVideoTracks().forEach(track => {
+            track.enabled = !newVideoState;
+        });
+        setIsVideoOff(newVideoState);
+    };
+
+    const handleShareScreen = async () => {
+        if (!callActive) return;
+        if (isScreenSharing) {
+            await webrtcService.stopScreenShare();
+        } else {
+            await webrtcService.startScreenShare();
+        }
+    };
+    
+    const handleSendMessage = (text, senderName) => {
+        webrtcService.sendMessage(text, senderName);
+    };
+    
+    const handleInviteSent = async (newMember) => {
+        if (!roomId) return;
+        const roomRef = doc(db, "rooms", roomId);
+        await updateDoc(roomRef, {
+            members: arrayUnion(newMember),
+            memberIds: arrayUnion(newMember.uid)
+        });
+    };
+
+    useEffect(() => {
+        webrtcService.onLocalStream = setLocalStream;
+        webrtcService.onRemoteStreamsChange = setRemoteStreams;
+        webrtcService.onScreenShareStateChange = (isSharing, stream) => {
+            setIsScreenSharing(isSharing);
+            setScreenShareStream(stream);
+        };
+        webrtcService.onRemoteScreenStream = (uid, stream) => {
+            setRemoteScreenStreams(prev => {
+                const newStreams = { ...prev };
+                if (stream) {
+                    newStreams[uid] = stream;
+                } else {
+                    delete newStreams[uid];
+                }
+                return newStreams;
+            });
+        };
+        webrtcService.onNewMessage = (newMessages) => {
+            setChatMessages(prev => [...prev, ...newMessages]);
+        };
+        webrtcService.onCallEnded = () => {
+            console.log('%c [UI] onCallEnded triggered. Resetting call state. ', 'background: orange; color: black;');
+            setCallActive(false);
+            setLocalStream(null);
+            setRemoteStreams({});
+            setRemoteScreenStreams({});
+            setIsMuted(true);
+            setIsVideoOff(true);
+            setIsScreenSharing(false);
+            setScreenShareStream(null);
+            setActiveCallPanel(null);
+            setPinnedUid(null);
+            setChatMessages([]);
+        };
+
+        return () => {
+            if (webrtcService.callId) {
+                webrtcService.hangUp();
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (!user || !roomId) return;
-
         const roomRef = doc(db, "rooms", roomId);
-        const unsubscribe = onSnapshot(roomRef, (docSnap) => {
+        const unsub = onSnapshot(roomRef, (docSnap) => {
             if (docSnap.exists()) {
                 const roomData = docSnap.data();
                 if (!roomData.memberIds.includes(user.uid)) {
@@ -680,7 +1089,7 @@ const RoomView = () => {
             }
             setLoading(false);
         });
-        return () => unsubscribe();
+        return () => unsub();
     }, [roomId, user]);
 
     useEffect(() => {
@@ -694,151 +1103,154 @@ const RoomView = () => {
     }, [user]);
 
     useEffect(() => {
-        if (!room?.members) {
-            setMembersWithStatus([]);
-            return;
-        }
-
+        if (!room?.members) return;
         const memberUIDs = room.members.map(m => m.uid);
         if (memberUIDs.length === 0) {
             setMembersWithStatus([]);
             return;
-        }
-
+        };
         const q = query(collection(db, "users"), where('__name__', 'in', memberUIDs));
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsub = onSnapshot(q, (snapshot) => {
             const usersStatusMap = new Map();
-            snapshot.forEach(userDoc => {
-                usersStatusMap.set(userDoc.id, userDoc.data());
-            });
-
-            const combinedMembers = room.members.map(roomMember => {
-                const userStatus = usersStatusMap.get(roomMember.uid);
-                return {
-                    ...roomMember,
-                    ...userStatus,
-                };
-            });
-            
+            snapshot.forEach(userDoc => usersStatusMap.set(userDoc.id, userDoc.data()));
+            const combinedMembers = room.members.map(m => ({ ...m, ...usersStatusMap.get(m.uid) }));
             setMembersWithStatus(combinedMembers);
         });
-
-        return () => unsubscribe();
-
+        return () => unsub();
     }, [room?.members]);
 
-    const handleInviteSent = async (newMember) => {
-        if (!roomId) return;
-        const roomRef = doc(db, "rooms", roomId);
-        await updateDoc(roomRef, {
-            members: arrayUnion(newMember),
-            memberIds: arrayUnion(newMember.uid)
+    useEffect(() => {
+        if (!user?.uid) return;
+        const callsRef = collection(db, 'calls');
+        const q = query(callsRef, where('participants', 'array-contains', user.uid), where('status', 'in', ['ringing', 'accepted']));
+        
+        const unsub = onSnapshot(q, (snapshot) => {
+            const ringingCalls = [];
+            let activeCall = null;
+            snapshot.forEach(doc => {
+                const callData = { id: doc.id, ...doc.data() };
+                if (callData.status === 'ringing' && callData.createdBy !== user.uid) {
+                    ringingCalls.push(callData);
+                } else if (callData.status === 'accepted') {
+                    activeCall = callData;
+                }
+            });
+            
+            if (!callActive) {
+                setIncomingCall(ringingCalls.length > 0 ? ringingCalls[0] : null);
+            }
+            setOngoingCall(activeCall);
+
+            if (activeCall && callActive) {
+                const currentAttendees = activeCall.attendees || [];
+                const previousAttendees = attendeesRef.current;
+                currentAttendees.forEach(uid => {
+                    if (!previousAttendees.includes(uid)) {
+                        const member = membersWithStatus.find(m => m.uid === uid);
+                        if (member && uid !== user.uid) addNotification(`${member.name} joined the call.`, 'join');
+                    }
+                });
+                previousAttendees.forEach(uid => {
+                    if (!currentAttendees.includes(uid)) {
+                        const member = membersWithStatus.find(m => m.uid === uid);
+                        if (member) addNotification(`${member.name} left the call.`, 'leave');
+                    }
+                });
+                attendeesRef.current = currentAttendees;
+            } else if (!activeCall) {
+                attendeesRef.current = [];
+            }
         });
-    };
-    
-    if (loading) {
-        return <div className="flex items-center justify-center h-screen bg-gray-900 text-lg font-semibold text-gray-300">Loading Project Room...</div>;
-    }
+        
+        return () => unsub();
+    }, [user?.uid, callActive, membersWithStatus]);
 
-    if (accessLost === 'deleted') {
-        return <FullScreenMessage title="Project Deleted" message="This project has been permanently deleted by an admin. You can no longer access this workspace." />;
-    }
-    
-    if (accessLost === 'removed') {
-        return <FullScreenMessage title="Access Revoked" message="You have been removed from this project by an admin and can no longer access this workspace." />;
-    }
-
-    if (!room) {
-        return <div className="flex items-center justify-center h-screen bg-gray-900 text-lg font-semibold text-red-400">Could not find the requested project room.</div>;
-    }
+    if (loading) return <div className="flex items-center justify-center h-screen bg-gray-900 text-lg font-semibold text-gray-300">Loading Project Room...</div>;
+    if (accessLost) return <FullScreenMessage title={accessLost === 'deleted' ? "Project Deleted" : "Access Revoked"} message={accessLost === 'deleted' ? "This project has been permanently deleted." : "You have been removed from this project."} />;
+    if (!room) return <div className="flex items-center justify-center h-screen bg-gray-900 text-lg font-semibold text-red-400">Project room not found.</div>;
 
     const isAdmin = room.adminIds && room.adminIds.includes(user.uid);
     const isOwner = user.uid === room.ownerId;
     const projectCreator = membersWithStatus.find(m => m.uid === room.ownerId);
+    const currentUser = membersWithStatus.find(m => m.uid === user.uid);
 
     return (
         <>
-            {/* CUSTOM SCROLLBAR: Style block for the custom scrollbar */}
-            <style>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 8px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: #4f46e5;
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: #6366f1;
-                }
-            `}</style>
+            <style>{`.custom-scrollbar::-webkit-scrollbar{width:8px;}.custom-scrollbar::-webkit-scrollbar-track{background:transparent;}.custom-scrollbar::-webkit-scrollbar-thumb{background:#4f46e5;border-radius:10px;}.custom-scrollbar::-webkit-scrollbar-thumb:hover{background:#6366f1;}`}</style>
+            
+            <AnimatePresence>
+                {isInviteModalOpen && <InviteModal isOpen={isInviteModalOpen} onClose={() => setInviteModalOpen(false)} onInviteSent={handleInviteSent} currentMembers={membersWithStatus} />}
+                {incomingCall && <IncomingCallModal callData={incomingCall} onAccept={handleAcceptCall} onDecline={handleDeclineCall} />}
+            </AnimatePresence>
+            
+            {callActive && currentUser && <CallWindow 
+                localStream={localStream} 
+                remoteStreams={remoteStreams} 
+                onHangUp={handleHangUp} 
+                isMuted={isMuted} 
+                isVideoOff={isVideoOff} 
+                onToggleMute={handleToggleMute} 
+                onToggleVideo={handleToggleVideo} 
+                members={membersWithStatus} 
+                currentUser={currentUser} 
+                onShareScreen={handleShareScreen} 
+                isScreenSharing={isScreenSharing} 
+                activePanel={activeCallPanel} 
+                setActivePanel={setActiveCallPanel} 
+                pinnedUid={pinnedUid} 
+                setPinnedUid={setPinnedUid} 
+                screenShareStream={screenShareStream} 
+                onSendMessage={handleSendMessage} 
+                chatMessages={chatMessages}
+                remoteScreenStreams={remoteScreenStreams}
+            />}
+            
+            <div className="fixed bottom-5 right-5 z-50 space-y-3">
+                <AnimatePresence>
+                    {notifications.map(n => <ToastNotification key={n.id} message={n.message} icon={n.icon} />)}
+                </AnimatePresence>
+            </div>
+
             <div className="h-screen bg-gray-900 text-white font-sans flex flex-col">
-                 <AnimatePresence>
-                    {isInviteModalOpen && (
-                        <InviteModal 
-                            isOpen={isInviteModalOpen}
-                            onClose={() => setInviteModalOpen(false)}
-                            onInviteSent={handleInviteSent}
-                            currentMembers={membersWithStatus}
-                        />
-                    )}
-                 </AnimatePresence>
-                 <div className="absolute inset-0 z-0 pointer-events-none">
-                     <div className="absolute top-0 left-0 w-72 h-72 bg-indigo-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob"></div>
-                     <div className="absolute top-0 right-0 w-72 h-72 bg-purple-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-                     <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-pink-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-                 </div>
-                 
-                 <div className="flex flex-1 overflow-hidden relative z-10">
-                     <Sidebar room={room} activeView={activeView} setActiveView={setActiveView} isAdmin={isAdmin} />
-
-                     <div className="flex-1 flex flex-col z-10 overflow-hidden">
-                         <Header room={room} />
-                         <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                             <AnimatePresence mode="wait">
-                                 <motion.div
-                                     key={activeView}
-                                     initial={{ opacity: 0, y: 20 }}
-                                     animate={{ opacity: 1, y: 0 }}
-                                     exit={{ opacity: 0, y: -20 }}
-                                     transition={{ duration: 0.3 }}
-                                 >
-                                     {activeView === 'overview' && (
-                                         <>
-                                             <div className="mb-4">
-                                                 <h2 className="text-2xl font-bold text-white">Welcome back!</h2>
-                                                 <p className="text-md text-gray-400">Here's a look at the "{room.projectName}" project.</p>
-                                             </div>
-                                             <div className="mb-6 shadow-2xl shadow-indigo-900/50 rounded-xl overflow-hidden border border-white/10 h-[45vh]">
-                                                 <TrainModel phases={room.sdlcPhases || []} />
-                                             </div>
-                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                                 <StatCard icon={<Clock size={24} className="text-indigo-300" />} label="Progress" value={`${room.progress || 0}%`} />
-                                                 <StatCard icon={<Users size={24} className="text-indigo-300" />} label="Members" value={membersWithStatus.filter(m => m.inviteAccepted).length} />
-                                                 <StatCard icon={<User size={24} className="text-indigo-300" />} label="Project Creator" value={projectCreator?.name || 'N/A'} />
-                                                 <StatCard icon={<Box size={24} className="text-indigo-300" />} label="Total Phases" value={room.sdlcPhases.length} />
-                                             </div>
-                                         </>
-                                     )}
-                                     {activeView === 'tasks' && <div className="text-center p-10 bg-gray-800/50 rounded-lg">Kanban Board View will be shown here</div>}
-                                     {activeView === 'analytics' && <div className="text-center p-10 bg-gray-800/50 rounded-lg">Analytics & Gantt Chart will come here</div>}
-                                     {activeView === 'settings' && isAdmin && <ProjectSettings room={room} roomId={roomId} members={membersWithStatus} isOwner={isOwner} />}
-                                 </motion.div>
-                             </AnimatePresence>
-                         </main>
-                     </div>
-
-                     <CollaborationPanel 
-                        members={membersWithStatus} 
-                        onInvite={() => setInviteModalOpen(true)}
-                        user={user}
-                        room={room}
-                        roomId={room.id}
-                    />
-                 </div>
+                <div className="absolute inset-0 z-0 pointer-events-none">
+                    <div className="absolute top-0 left-0 w-72 h-72 bg-indigo-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob"></div>
+                    <div className="absolute top-0 right-0 w-72 h-72 bg-purple-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+                    <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-pink-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+                </div>
+                
+                <div className="flex flex-1 overflow-hidden relative z-10">
+                    <Sidebar room={room} activeView={activeView} setActiveView={setActiveView} isAdmin={isAdmin} />
+                    <div className="flex-1 flex flex-col z-10 overflow-hidden">
+                        <Header room={room} onStartCall={handleStartCall} onShareScreen={handleShareScreen} isCallActive={callActive} ongoingCall={ongoingCall} onJoinCall={handleJoinCall} />
+                        <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                           <AnimatePresence mode="wait">
+                               <motion.div key={activeView} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+                                   {activeView === 'overview' && (
+                                       <>
+                                           <div className="mb-4">
+                                               <h2 className="text-2xl font-bold text-white">Welcome back!</h2>
+                                               <p className="text-md text-gray-400">Here's a look at the "{room.projectName}" project.</p>
+                                           </div>
+                                           <div className="mb-6 shadow-2xl shadow-indigo-900/50 rounded-xl overflow-hidden border border-white/10 h-[45vh]">
+                                               <TrainModel phases={room.sdlcPhases || []} />
+                                           </div>
+                                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                               <StatCard icon={<Clock size={24} className="text-indigo-300" />} label="Progress" value={`${room.progress || 0}%`} />
+                                               <StatCard icon={<Users size={24} className="text-indigo-300" />} label="Members" value={membersWithStatus.filter(m => m.inviteAccepted).length} />
+                                               <StatCard icon={<User size={24} className="text-indigo-300" />} label="Project Creator" value={projectCreator?.name || 'N/A'} />
+                                               <StatCard icon={<Box size={24} className="text-indigo-300" />} label="Total Phases" value={room.sdlcPhases?.length || 0} />
+                                           </div>
+                                       </>
+                                   )}
+                                   {activeView === 'tasks' && <div className="text-center p-10 bg-gray-800/50 rounded-lg">Kanban Board View will be shown here</div>}
+                                   {activeView === 'analytics' && <div className="text-center p-10 bg-gray-800/50 rounded-lg">Analytics & Gantt Chart will come here</div>}
+                                   {activeView === 'settings' && isAdmin && <ProjectSettings room={room} roomId={roomId} members={membersWithStatus} isOwner={isOwner} />}
+                               </motion.div>
+                           </AnimatePresence>
+                        </main>
+                    </div>
+                    <CollaborationPanel members={membersWithStatus} onInvite={() => setInviteModalOpen(true)} user={user} room={room} roomId={room.id} />
+                </div>
             </div>
         </>
     );

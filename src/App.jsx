@@ -72,7 +72,6 @@ const App = () => {
     <InviteProvider>
       <AnimatePresence mode="wait">
         <Routes location={location}>
-          {/* Guest Routes (No Sidebar) */}
           <Route
             path="/"
             element={
@@ -136,7 +135,6 @@ const App = () => {
             }
           />
 
-          {/* Protected Routes - Keep Sidebar persistent */}
           <Route
             element={
               <ProtectedRoute>
@@ -178,7 +176,6 @@ const App = () => {
             />
           </Route>
 
-          {/* Separate route without sidebar */}
           <Route
             path="/room/:roomId"
             element={
