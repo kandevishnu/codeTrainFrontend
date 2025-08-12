@@ -9,13 +9,19 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user || null);
-      setLoading(false);
-    });
+  const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    if (currentUser) {
+      await currentUser.reload(); // refresh profile
+      setUser(auth.currentUser); // Keep it as a Firebase User object
+    } else {
+      setUser(null);
+    }
+    setLoading(false);
+  });
 
-    return () => unsubscribe();
-  }, []);
+  return () => unsubscribe();
+}, []);
+
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

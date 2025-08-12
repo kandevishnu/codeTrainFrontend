@@ -1,15 +1,16 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, onSnapshot, updateDoc, serverTimestamp, arrayUnion, collection, query, where, getDocs, arrayRemove, deleteDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp, arrayUnion, collection, query, where, getDocs, arrayRemove, deleteDoc, orderBy, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../routes/AuthContext";
 import TrainModel from "../components/TrainModel";
 import { motion, AnimatePresence } from "framer-motion";
+import { getMembersWithStatus } from "../utils/getMembersWithStatus";
 import {
     Clock, Users, User, Box, LayoutDashboard, CheckSquare,
     BarChart3, Settings, Plus, Edit, Paperclip, Trash2,
     Search, Phone, Video, ScreenShare, X, User as UserIcon, Check, AlertTriangle, Shield, ShieldOff,
-    Mic, MicOff, PhoneOff, VideoOff, LogIn, LogOut, Info, MessageSquare, Pin, PinOff
+    Mic, MicOff, PhoneOff, VideoOff, LogIn, LogOut, Info, MessageSquare, Pin, PinOff, Send
 } from "lucide-react";
 
 import { webrtcService } from '../services/webrtcService';
@@ -74,45 +75,53 @@ const Sidebar = ({ room, activeView, setActiveView, isAdmin }) => (
 );
 
 const Header = ({ room, onStartCall, onShareScreen, isCallActive, onJoinCall, ongoingCall }) => (
-    <header className="flex items-center justify-between p-4 border-b mt-1.5 border-white/10">
+    <header className="flex items-center justify-between p-4 pt-5 border-b border-slate-700/50 bg-slate-900/30 backdrop-blur-lg">
         <div>
-            <div className="flex items-center space-x-2">
-                <p className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    room.status === 'In Progress' ? 'bg-blue-500/20 text-blue-300' :
-                    room.status === 'Completed' ? 'bg-green-500/20 text-green-300' :
-                    'bg-yellow-500/20 text-yellow-300'
+            <div className="flex items-center space-x-3">
+                <p className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${
+                    room.status === 'In Progress' ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20' :
+                    room.status === 'Completed' ? 'bg-green-500/10 text-green-300 border border-green-500/20' :
+                    'bg-yellow-500/10 text-yellow-300 border border-yellow-500/20'
                 }`}>{room.status}</p>
                 <Countdown deadline={room.deadline} />
             </div>
         </div>
-        <div className="flex items-center space-x-2">
-            <div className="flex items-center p-1 bg-gray-800 rounded-lg border border-white/10">
+        <div className="flex items-center space-x-3">
+            <div className="flex items-center p-1 bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-inner gap-0.5">
                 <IconButton icon={<Search size={18} />} tooltip="Search" />
                 <IconButton icon={<Paperclip size={18} />} tooltip="Attachments" />
             </div>
-            <div className="flex items-center p-1 bg-gray-800 rounded-lg border border-white/10">
+            <div className="flex items-center p-1 bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-inner gap-0.5">
                 {ongoingCall && !isCallActive ? (
-                    <button onClick={() => onJoinCall(ongoingCall.type)} className="flex items-center space-x-2 px-3 py-1.5 text-sm font-semibold text-green-300 bg-green-500/20 rounded-md hover:bg-green-500/30 transition-colors">
+                    <button 
+                        onClick={() => onJoinCall(ongoingCall.type)} 
+                        className="flex items-center space-x-2 px-4 py-2 text-sm font-semibold text-green-200 bg-green-500/20 rounded-lg hover:bg-green-500/30 transition-all duration-300 ease-in-out transform hover:scale-105"
+                    >
                         <LogIn size={16} />
                         <span>Join Call</span>
                     </button>
                 ) : (
                     <>
-                        <IconButton icon={<Phone size={18} />} tooltip="Start Voice Call"
+                        <IconButton 
+                            icon={<Phone size={18} />} 
+                            tooltip="Start Voice Call"
                             onClick={() => onStartCall('voice')}
-                            className={isCallActive || ongoingCall ? 'opacity-50 cursor-not-allowed' : ''} />
-                        <IconButton icon={<Video size={18} />} tooltip="Start Video Call"
+                            className={isCallActive || ongoingCall ? 'opacity-40 cursor-not-allowed' : 'hover:text-green-400'} 
+                        />
+                        <IconButton 
+                            icon={<Video size={18} />} 
+                            tooltip="Start Video Call"
                             onClick={() => onStartCall('video')}
-                            className={isCallActive || ongoingCall ? 'opacity-50 cursor-not-allowed' : ''} />
+                            className={isCallActive || ongoingCall ? 'opacity-40 cursor-not-allowed' : 'hover:text-green-400'} 
+                        />
                     </>
                 )}
-                 <IconButton icon={<ScreenShare size={18} />} tooltip="Share Screen" onClick={onShareScreen} className={!isCallActive ? 'opacity-50 cursor-not-allowed' : ''} />
             </div>
         </div>
     </header>
 );
 
-const CollaborationPanel = ({ members, onInvite, user, room, roomId }) => {
+const CollaborationPanel = ({ members, onInvite, currentUser, room, roomId }) => {
     const [activeTab, setActiveTab] = useState('members');
     return (
         <aside className="w-80 bg-gray-900/70 backdrop-blur-xl border-l border-white/10 flex flex-col">
@@ -122,9 +131,9 @@ const CollaborationPanel = ({ members, onInvite, user, room, roomId }) => {
                 <TabButton label="Chat" isActive={activeTab === 'chat'} onClick={() => setActiveTab('chat')} />
             </div>
             <div className="flex-grow p-4 overflow-y-auto custom-scrollbar">
-                {activeTab === 'members' && <MembersList members={members} onInvite={onInvite} currentUser={user} room={room} roomId={roomId} />}
+                {activeTab === 'members' && <MembersList members={members} onInvite={onInvite} currentUser={currentUser} room={room} roomId={roomId} />}
                 {activeTab === 'activity' && <ActivityFeed />}
-                {activeTab === 'chat' && <ChatPanel />}
+                {activeTab === 'chat' && <ChatPanel roomId={roomId} currentUser={currentUser} />}
             </div>
         </aside>
     );
@@ -166,6 +175,11 @@ const ConfirmRemoveModal = ({ isOpen, onClose, onConfirm, memberName }) => {
 const MembersList = ({ members, onInvite, currentUser, room, roomId }) => {
     const [editingMember, setEditingMember] = useState({ uid: null, name: '' });
     const [memberToRemove, setMemberToRemove] = useState(null);
+
+    // **FIX: Add a guard clause to prevent crash on initial render**
+    if (!currentUser) {
+        return null; // Or a loading spinner
+    }
 
     const getStatus = (lastSeen) => {
         if (!lastSeen?.toDate) return { color: 'bg-gray-500', text: 'Offline' };
@@ -316,17 +330,137 @@ const ActivityFeed = () => (
     </div>
 );
 
-const ChatPanel = () => (
-    <div className="flex flex-col h-full">
-        <div className="flex-grow">
-        <p className="text-sm text-gray-400">Global chat future update...</p>
+const ChatPanel = ({ roomId, currentUser }) => {
+    const [messages, setMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState("");
+    const messagesEndRef = useRef(null);
+
+    useEffect(() => {
+        if (!roomId) return;
+        const messagesRef = collection(db, "rooms", roomId, "chat");
+        const q = query(messagesRef, orderBy("timestamp"));
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const msgs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setMessages(msgs);
+        });
+
+        return () => unsubscribe();
+    }, [roomId]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (newMessage.trim() === "" || !currentUser) return;
+
+        const messagesRef = collection(db, "rooms", roomId, "chat");
+        await addDoc(messagesRef, {
+            text: newMessage,
+            senderUid: currentUser.uid,
+            senderName: currentUser.name,
+            photoURL: currentUser.photoURL || null, 
+            timestamp: serverTimestamp(),
+        });
+
+        setNewMessage("");
+    };
+
+    return (
+        <div className="flex flex-col h-full bg-slate-900/50">
+
+            <div className="flex-grow p-4 overflow-y-auto space-y-4 custom-scrollbar bg-slate-900">
+  {messages.map((msg) => {
+    const isCurrentUser = msg.senderUid === currentUser?.uid;
+    return (
+      <div
+        key={msg.id}
+        className={`flex items-end gap-2 ${
+          isCurrentUser ? "justify-end" : "justify-start"
+        }`}
+      >
+        {!isCurrentUser && (
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+            {msg.photoURL ? (
+              <img
+                src={msg.photoURL}
+                alt={msg.senderName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <UserIcon className="w-full h-full p-1.5 text-slate-400 bg-slate-700" />
+            )}
+          </div>
+        )}
+
+        <div
+          className={`relative max-w-xs lg:max-w-md px-3 py-2 rounded-lg shadow-sm ${
+            isCurrentUser
+              ? "bg-slate-500 text-white rounded-br-none"
+              : "bg-slate-700 text-white rounded-bl-none"
+          }`}
+        >
+          {isCurrentUser ? (<p className="text-sm font-semibold text-teal-300">
+              You
+            </p>) : (
+            <p className="text-sm font-semibold text-teal-300">
+              {msg.senderName}
+            </p>
+          )}
+          <p className="text-sm break-words pr-10">{msg.text}</p>
+          <span className="absolute bottom-1 right-1 text-[10px] text-gray-300">
+            {msg.timestamp?.toDate().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
         </div>
-        <div className="mt-4 flex items-center space-x-2">
-                <input type="text" placeholder="Type a message..." className="flex-1 bg-gray-700 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
-                <button className="p-2 bg-indigo-600 rounded-lg"><Paperclip size={18}/></button>
+
+        {isCurrentUser && (
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+            {currentUser?.photoURL ? (
+              <img
+                src={currentUser.photoURL}
+                alt="You"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <UserIcon className="w-full h-full p-1.5 text-slate-400 bg-slate-700" />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  })}
+  <div ref={messagesEndRef} />
+</div>
+
+
+            <div className="p-4 border-t border-slate-700">
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Type a message..."
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        />
+                        <button type="button" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            <Paperclip size={18} />
+                        </button>
+                    </div>
+                    <button type="submit" className="p-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-500 transition-colors disabled:bg-slate-600" disabled={!newMessage.trim()}>
+                        <Send size={18} />
+                    </button>
+                </form>
+            </div>
         </div>
-    </div>
-);
+    );
+};
+
 
 const Countdown = ({ deadline }) => {
     const calculateTimeLeft = () => {
@@ -850,15 +984,29 @@ const CallMembersPanel = ({ members, currentUser, allParticipants }) => {
     const attendees = members.filter(m => attendeeUids.has(m.uid));
     
     return (
-        <div className="flex flex-col h-full">
-            <h3 className="p-4 text-lg font-bold border-b border-slate-700">Participants ({attendees.length})</h3>
-            <div className="flex-grow overflow-y-auto p-4 space-y-3">
-                {attendees.map(member => (
-                    <div key={member.uid} className="flex items-center space-x-3">
-                        {member.photoURL ? <img src={member.photoURL} className="w-8 h-8 rounded-full" alt={member.name}/> : <UserIcon className="w-8 h-8 p-1.5 bg-slate-700 rounded-full" />}
-                        <span className="text-sm font-medium">{member.name}{member.uid === currentUser.uid && " (You)"}</span>
-                    </div>
-                ))}
+        <div className="flex flex-col h-full bg-slate-900/50">
+            <div className="p-4 border-b border-slate-700">
+                <h3 className="text-lg font-bold text-white">Participants ({attendees.length})</h3>
+            </div>
+            <div className="flex-grow p-2 overflow-y-auto custom-scrollbar">
+                <div className="space-y-2 p-2">
+                    {attendees.map(member => (
+                        <div key={member.uid} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer">
+                            <div className="relative">
+                                {member.photoURL ? 
+                                    <img src={member.photoURL} className="w-10 h-10 rounded-full object-cover" alt={member.name}/> : 
+                                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                                        <UserIcon className="w-6 h-6 text-slate-400" />
+                                    </div>
+                                }
+                            </div>
+                            <span className="font-medium text-white">
+                                {member.name}
+                                {member.uid === currentUser.uid && <span className="text-xs text-indigo-400 ml-1.5">(You)</span>}
+                            </span>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -882,30 +1030,46 @@ const CallChatPanel = ({ onSendMessage, messages, currentUser }) => {
     };
 
     return (
-        <div className="flex flex-col h-full">
-            <h3 className="p-4 text-lg font-bold border-b border-slate-700">In-call Chat</h3>
-            <p className="text-xs text-slate-400 px-4 py-2 bg-slate-800">Messages are deleted when the call ends.</p>
-            <div className="flex-grow overflow-y-auto p-4 space-y-4">
-                {sortedMessages.map((msg) => (
-                    <div key={msg.id}>
-                        <div className="flex justify-between items-center text-xs text-slate-400">
-                            <strong>{msg.senderUid === currentUser?.uid ? "You" : msg.senderName}</strong>
-                            <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <div className="flex flex-col h-full bg-slate-900/50">
+            <div className="p-4 border-b border-slate-700">
+                <h3 className="text-lg font-bold text-white">In-call Chat</h3>
+                <p className="text-xs text-slate-400">Messages are deleted when the call ends.</p>
+            </div>
+
+            <div className="flex-grow p-4 overflow-y-auto space-y-4 custom-scrollbar">
+                {sortedMessages.map((msg) => {
+                    const isCurrentUser = msg.senderUid === currentUser?.uid;
+                    return (
+                        <div key={msg.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-xs lg:max-w-md px-3 py-2 rounded-xl ${isCurrentUser ? 'bg-indigo-600 rounded-br-none' : 'bg-slate-700 rounded-bl-none'}`}>
+                                {!isCurrentUser && (
+                                    <p className="text-xs font-bold text-indigo-300">{msg.senderName}</p>
+                                )}
+                                <p className="text-sm text-white break-words">{msg.text}</p>
+                                <p className={`text-xs text-slate-400 mt-1 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
+                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                            </div>
                         </div>
-                        <p className={`text-sm p-2 rounded-md mt-1 ${msg.senderUid === currentUser?.uid ? 'bg-indigo-600' : 'bg-slate-700'}`}>{msg.text}</p>
-                    </div>
-                ))}
+                    );
+                })}
                 <div ref={messagesEndRef} />
             </div>
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-700">
-                <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-            </form>
+
+            <div className="p-4 border-t border-slate-700">
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    />
+                    <button type="submit" className="p-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-500 transition-colors disabled:bg-slate-600" disabled={!newMessage.trim()}>
+                        <Send size={18} />
+                    </button>
+                </form>
+            </div>
         </div>
     );
 };
@@ -949,18 +1113,20 @@ const RoomView = () => {
     const [chatMessages, setChatMessages] = useState([]);
     const attendeesRef = useRef([]);
 
-    const addNotification = (message, type) => {
+    const addNotification = useCallback((message, type) => {
         const id = Date.now();
-        const icon = type === 'join' ? <LogIn size={16} className="text-green-400" /> : <LogOut size={16} className="text-red-400" />;
+        const icon = type === 'join' ? <LogIn size={16} className="text-green-400" /> 
+                   : type === 'leave' ? <LogOut size={16} className="text-red-400" />
+                   : <MessageSquare size={16} className="text-blue-400" />;
         setNotifications(prev => [...prev, { id, message, icon }]);
         setTimeout(() => {
             setNotifications(prev => prev.filter(n => n.id !== id));
         }, 4000);
-    };
+    }, []);
 
     const handleStartCall = async (type) => {
         if (!user || !room?.memberIds || ongoingCall) return;
-        setIsMuted(false);
+        setIsMuted(type === 'video'); // Muted by default for video calls
         setIsVideoOff(type === 'voice');
         await webrtcService.startCall(type, user.uid, room.memberIds);
         setCallActive(true);
@@ -968,7 +1134,7 @@ const RoomView = () => {
 
     const handleJoinCall = async (type) => {
         if (!ongoingCall || !user) return;
-        setIsMuted(false);
+        setIsMuted(type === 'video');
         setIsVideoOff(type === 'voice');
         await webrtcService.answerCall(ongoingCall.id, user.uid);
         setCallActive(true);
@@ -976,7 +1142,7 @@ const RoomView = () => {
 
     const handleAcceptCall = async () => {
         if (!incomingCall || !user) return;
-        setIsMuted(false);
+        setIsMuted(incomingCall.type === 'video');
         setIsVideoOff(incomingCall.type === 'voice');
         await webrtcService.answerCall(incomingCall.id, user.uid);
         setCallActive(true);
@@ -1048,10 +1214,13 @@ const RoomView = () => {
             });
         };
         webrtcService.onNewMessage = (newMessages) => {
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage.senderUid !== user.uid) {
+                addNotification(`${lastMessage.senderName}: ${lastMessage.text}`, 'message');
+            }
             setChatMessages(prev => [...prev, ...newMessages]);
         };
         webrtcService.onCallEnded = () => {
-            console.log('%c [UI] onCallEnded triggered. Resetting call state. ', 'background: orange; color: black;');
             setCallActive(false);
             setLocalStream(null);
             setRemoteStreams({});
@@ -1070,7 +1239,7 @@ const RoomView = () => {
                 webrtcService.hangUp();
             }
         };
-    }, []);
+    }, [user.uid, addNotification]);
 
     useEffect(() => {
         if (!user || !roomId) return;
@@ -1109,15 +1278,37 @@ const RoomView = () => {
             setMembersWithStatus([]);
             return;
         };
-        const q = query(collection(db, "users"), where('__name__', 'in', memberUIDs));
-        const unsub = onSnapshot(q, (snapshot) => {
-            const usersStatusMap = new Map();
-            snapshot.forEach(userDoc => usersStatusMap.set(userDoc.id, userDoc.data()));
-            const combinedMembers = room.members.map(m => ({ ...m, ...usersStatusMap.get(m.uid) }));
-            setMembersWithStatus(combinedMembers);
-        });
-        return () => unsub();
-    }, [room?.members]);
+
+  // Listen for changes in these users
+  const q = query(
+      collection(db, "users"),
+      where("uid", "in", memberUIDs)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      // Build a map of uid → latest user data
+      const usersMap = new Map();
+      snapshot.forEach(userDoc => {
+        const data = userDoc.data();
+        usersMap.set(data.uid, data);
+      });
+
+      // Merge latest user data with room-specific member fields
+      const combined = room.members.map(m => {
+      const liveUser = usersMap.get(m.uid) || {}; // Get live user data or an empty object
+      return {
+        ...m,  // 1. Start with the base member data from the room (role, inviteAccepted)
+        ...liveUser, // 2. Merge in all live properties (lastSeen, email, etc.)
+        name: liveUser.fullName || m.name, // 3. **Crucially, overwrite 'name' with the live 'fullName'**
+      };
+    });
+
+    setMembersWithStatus(combined);
+
+    });
+
+    return () => unsub();
+  }, [room?.members]);
 
     useEffect(() => {
         if (!user?.uid) return;
@@ -1163,7 +1354,7 @@ const RoomView = () => {
         });
         
         return () => unsub();
-    }, [user?.uid, callActive, membersWithStatus]);
+    }, [user?.uid, callActive, membersWithStatus, addNotification]);
 
     if (loading) return <div className="flex items-center justify-center h-screen bg-gray-900 text-lg font-semibold text-gray-300">Loading Project Room...</div>;
     if (accessLost) return <FullScreenMessage title={accessLost === 'deleted' ? "Project Deleted" : "Access Revoked"} message={accessLost === 'deleted' ? "This project has been permanently deleted." : "You have been removed from this project."} />;
@@ -1228,7 +1419,7 @@ const RoomView = () => {
                                    {activeView === 'overview' && (
                                        <>
                                            <div className="mb-4">
-                                               <h2 className="text-2xl font-bold text-white">Welcome back!</h2>
+                                               <h2 className="text-2xl font-bold text-white">Welcome back, {currentUser?.name}!</h2>
                                                <p className="text-md text-gray-400">Here's a look at the "{room.projectName}" project.</p>
                                            </div>
                                            <div className="mb-6 shadow-2xl shadow-indigo-900/50 rounded-xl overflow-hidden border border-white/10 h-[45vh]">
@@ -1249,7 +1440,7 @@ const RoomView = () => {
                            </AnimatePresence>
                         </main>
                     </div>
-                    <CollaborationPanel members={membersWithStatus} onInvite={() => setInviteModalOpen(true)} user={user} room={room} roomId={room.id} />
+                    <CollaborationPanel members={membersWithStatus} onInvite={() => setInviteModalOpen(true)} currentUser={currentUser} room={room} roomId={room.id} />
                 </div>
             </div>
         </>
