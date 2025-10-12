@@ -61,13 +61,20 @@ class WebRTCService {
     this.onNewMessage = null;
     this.onCallEnded = null;
     this.onScreenShareStateChange = null;
+    this.onParticipantStateChange = null;
   }
 
 
-  async startCall(type, initiatorUid, participants = []) {
+  async startCall(type, initiatorUid, participants = [], initialMuteState = false) {
     this.currentUserUid = initiatorUid;
     this.localStream = await this._getLocalStream(type === "video");
-    this.onLocalStream?.(this.localStream);
+    if (this.localStream) {
+    this.localStream.getAudioTracks().forEach(track => {
+      track.enabled = !initialMuteState;
+    });
+  }
+  
+  this.onLocalStream?.(this.localStream);
 
     const callDocRef = await addDoc(collection(db, "calls"), {
       createdBy: initiatorUid,
@@ -85,7 +92,7 @@ class WebRTCService {
     return this.callId;
   }
 
-  async answerCall(callId, answererUid) {
+  async answerCall(callId, answererUid, initialMuteState = false) {
     this.currentUserUid = answererUid;
     this.callId = callId;
 
@@ -94,26 +101,24 @@ class WebRTCService {
     const callData = snapshot.exists() ? snapshot.data() : null;
 
     if (!callData || callData.status === "ended") {
-      console.warn("Call not available / already ended");
-      this.hangUp();
-      return;
+        console.warn("Call not available / already ended");
+        this.hangUp();
+        return;
     }
 
     this.localStream = await this._getLocalStream(callData.type === "video");
+    if (this.localStream) {
+    this.localStream.getAudioTracks().forEach(track => {
+      track.enabled = !initialMuteState;
+    });
+  }
     this.onLocalStream?.(this.localStream);
 
     await updateDoc(callDocRef, { status: "accepted", attendees: arrayUnion(answererUid) });
 
-    const existing = callData.attendees || [];
-    for (const attendeeUid of existing) {
-      if (attendeeUid !== this.currentUserUid && !this.peerConnections.has(attendeeUid)) {
-        this._createPeerConnection(attendeeUid);
-      }
-    }
-
     this._listenForNewAttendees();
     this._listenForCallEnd();
-  }
+}
 
   async hangUp() {
     if (!this.callId) return;
@@ -157,20 +162,15 @@ class WebRTCService {
       this.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const screenTrack = this.screenStream.getVideoTracks()[0];
 
-      for (const [remoteUid, sender] of this.cameraSenders.entries()) {
-        if (sender && typeof sender.replaceTrack === "function") {
-          try {
-            await sender.replaceTrack(screenTrack);
-          } catch (e) {
-            
-            const pc = this.peerConnections.get(remoteUid);
-            if (pc) pc.addTrack(screenTrack, this.screenStream);
-          }
+      for (const pc of this.peerConnections.values()) {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(screenTrack);
         } else {
-          const pc = this.peerConnections.get(remoteUid);
-          if (pc) pc.addTrack(screenTrack, this.screenStream);
+          pc.addTrack(screenTrack, this.screenStream);
         }
       }
+      
       this.onScreenShareStateChange?.(true, this.screenStream);
 
       screenTrack.onended = () => {
@@ -185,11 +185,14 @@ class WebRTCService {
   async stopScreenShare() {
     if (!this.screenStream) return;
     const camTrack = this.localStream?.getVideoTracks()?.[0] || null;
-    for (const [remoteUid, sender] of this.cameraSenders.entries()) {
-      if (sender && typeof sender.replaceTrack === "function") {
-        try { await sender.replaceTrack(camTrack); } catch (_) {}
+
+    for (const pc of this.peerConnections.values()) {
+      const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+      if (sender) {
+        await sender.replaceTrack(camTrack);
       }
     }
+
     try { this.screenStream.getTracks().forEach(t => t.stop()); } catch (_) {}
     this.screenStream = null;
     this.onScreenShareStateChange?.(false, null);
@@ -481,11 +484,19 @@ class WebRTCService {
   _attachDataChannelHandlers(remoteUid, channel) {
     channel.onopen = () => console.log("Data channel open:", remoteUid);
     channel.onmessage = (e) => {
-      try { this.onNewMessage?.([JSON.parse(e.data)]); } catch (_) {}
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'state-change') {
+            this.onParticipantStateChange?.(msg.from, msg.payload);
+        } else {
+            this.onNewMessage?.([msg]);
+        }
+      } catch (_) {}
     };
     channel.onclose = () => console.log("Data channel closed:", remoteUid);
     channel.onerror = (err) => console.warn("Data channel error:", remoteUid, err);
   }
+
 
   async _cleanupSignalingDocsForPair(remoteUid) {
     if (!this.callId) return;
@@ -523,6 +534,20 @@ class WebRTCService {
       this.onRemoteScreenStream?.(remoteUid, null);
     }
     await this._cleanupSignalingDocsForPair(remoteUid);
+  }
+
+  _broadcastStateChange(payload) {
+    if (!this.currentUserUid) return;
+    const message = { type: 'state-change', from: this.currentUserUid, payload };
+    const jsonMessage = JSON.stringify(message);
+
+    for (const ch of this.dataChannels.values()) {
+      try {
+        if (ch && ch.readyState === "open") ch.send(jsonMessage);
+      } catch (err) {
+        console.warn("Failed to send state change:", err);
+      }
+    }
   }
 }
 

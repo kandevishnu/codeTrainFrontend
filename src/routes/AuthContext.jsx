@@ -11,8 +11,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
     if (currentUser) {
-      await currentUser.reload(); // refresh profile
-      setUser(auth.currentUser); // Keep it as a Firebase User object
+      await currentUser.reload(); 
+      setUser(auth.currentUser); 
     } else {
       setUser(null);
     }

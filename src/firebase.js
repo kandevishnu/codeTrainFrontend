@@ -24,6 +24,8 @@ const firebaseConfig = {
   storageBucket: "codetrain-40b2c.appspot.com",
   messagingSenderId: "174063254444",
   appId: "1:174063254444:web:7a44527d37b106a60b9809",
+  databaseURL: "https://codetrain-40b2c-default-rtdb.asia-southeast1.firebasedatabase.app",
+
 };
 
 const app = initializeApp(firebaseConfig);
