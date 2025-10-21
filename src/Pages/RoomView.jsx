@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-
+import ActivityFeed from "../components/features/ActivityFeed"
 import { useParams, useNavigate } from "react-router-dom";
 
 import {
@@ -67,6 +67,7 @@ import {
 import { webrtcService } from "../services/webrtcService";
 
 import IncomingCallModal from "../components/IncomingCallModal";
+import KanbanBoard from "../components/KanbanBoard";
 
 const StatCard = ({ icon, label, value }) => (
   <div className="bg-gray-800/50 p-4 rounded-lg flex items-center space-x-4">
@@ -658,14 +659,6 @@ const MembersList = ({ members, onInvite, currentUser, room, roomId }) => {
     </>
   );
 };
-
-const ActivityFeed = () => (
-  <div>
-            <h3 className="font-semibold text-white mb-4">Recent Activity</h3> 
-          <p className="text-sm text-gray-400">Activity feed, developing...</p> 
-     
-  </div>
-);
 
 const ChatPanel = ({ roomId, currentUser }) => {
   const [messages, setMessages] = useState([]);
@@ -2574,8 +2567,8 @@ const RoomView = () => {
                   )}
                                                      
                   {activeView === "tasks" && (
-                    <div className="text-center p-10 bg-gray-800/50 rounded-lg">
-                      Kanban Board View will be shown here
+                    <div className="text-center p-2 bg-gray-800/50 rounded-lg min-h-[350px]">
+                      <KanbanBoard members={membersWithStatus} />
                     </div>
                   )}
                                                      

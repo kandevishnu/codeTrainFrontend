@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.6",
+    "@hello-pangea/dnd": "^18.0.1",
     "@react-spring/three": "^10.0.1",
     "@react-three/drei": "^10.6.1",
     "@react-three/fiber": "^9.3.0",
@@ -19,6 +20,7 @@
     "cloudinary": "^2.7.0",
     "fabric": "^6.7.1",
     "firebase": "^12.0.0",
+    "firebase-functions": "^6.5.0",
     "framer-motion": "^12.23.12",
     "gsap": "^3.13.0",
     "lucide-react": "^0.528.0",

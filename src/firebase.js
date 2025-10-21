@@ -16,6 +16,7 @@ import {
   getDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAL8Viyn-zi_LXmZxuEuuR1gYnsyMZwMu4",
@@ -32,6 +33,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
+export const functions = getFunctions(app, 'us-central1');
 
 export const registerWithEmailPassword = async (name, email, password) => {
   try {
